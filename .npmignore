@@ -33,6 +33,8 @@ App.tsx
 # Native build artifacts
 android/app/build
 ios/build
+ios/Pods
+**/Pods
 *.xcarchive
 
 # Documentation source (README is included)
