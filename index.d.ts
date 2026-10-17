@@ -9,8 +9,9 @@ export type {
   Alarm,
   AlarmPermission,
   AlarmEvent,
-  Spec as AlarmModuleSpec,
 } from './specs/NativeAlarm';
+
+export type { Spec as AlarmModuleSpec } from './specs/NativeAlarm';
 
 export { AlarmDemo } from './AlarmDemo';
 

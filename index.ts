@@ -5,7 +5,7 @@
  * for both Android and iOS platforms.
  */
 
-export {
+export type {
   AlarmRepeat,
   AlarmConfig,
   Alarm,
