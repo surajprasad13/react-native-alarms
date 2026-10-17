@@ -14,8 +14,6 @@ export type {
   Spec as AlarmModuleSpec,
 } from './specs/NativeAlarm';
 
-export { AlarmDemo } from './AlarmDemo';
-
 // Default export for backward compatibility
 import NativeAlarm from './specs/NativeAlarm';
 export default NativeAlarm;

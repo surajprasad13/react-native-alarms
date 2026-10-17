@@ -246,7 +246,9 @@ Rings at regular intervals. Note: intervals reset if the app is killed.
 }
 ```
 
-## Complete Example
+## Building Your Own Alarm UI
+
+The library provides the core alarm management logic. You build your own UI components. Here's a complete example:
 
 ```typescript
 import React, { useEffect, useState } from 'react';
@@ -384,3 +386,44 @@ For issues and questions, please visit:
 - Cross-platform alarm scheduling
 - Event-driven architecture
 - Permission management
+
+## Custom Alarm UI & Custom Data
+
+The library supports completely custom alarm UI screens with custom data payloads.
+
+### Basic Custom Screen Example
+
+```typescript
+import { NativeModules } from 'react-native';
+import { AlarmService } from 'react-native-alarms/service';
+
+export function MyCustomAlarmScreen({ alarmId, title, data }) {
+  const customData = JSON.parse(data || '{}');
+
+  return (
+    <View style={{ backgroundColor: customData.color }}>
+      <Text>{title}</Text>
+      <TouchableOpacity onPress={() => AlarmService.stopAlarm(alarmId)}>
+        <Text>Stop</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+```
+
+### Passing Custom Data
+
+```typescript
+await AlarmService.scheduleAlarm({
+  timestamp: Date.now() + 5 * 60 * 1000,
+  title: 'Important!',
+  data: JSON.stringify({
+    backgroundColor: '#FF5252',
+    priority: 'high',
+    customMessage: 'This is urgent!',
+  }),
+});
+```
+
+**Full Guide:** See [CUSTOM_UI_GUIDE.md](./CUSTOM_UI_GUIDE.md) for complete examples and best practices.
+
