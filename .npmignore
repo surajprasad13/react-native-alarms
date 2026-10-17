@@ -1,9 +1,29 @@
+# Source files (TypeScript source is not needed, lib/ has compiled JS)
+# src/
+
 # Development files
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# Test files
 __tests__
+__mocks__
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+coverage
 test
 *.test.js
 *.test.ts
 *.test.tsx
+
+# Build artifacts
+*.log
+*.tgz
 
 # Demo and example files
 AlarmDemo.tsx
@@ -15,33 +35,47 @@ android/app/build
 ios/build
 *.xcarchive
 
-# Dependencies
-node_modules
+# Documentation source (README is included)
+docs
 
-# Config files
-metro.config.js
-babel.config.js
-jest.config.js
+# Development config
+.eslintrc*
+.prettierrc*
+prettier.config.*
+jest.config.*
+babel.config.*
+metro.config.*
 tsconfig.json
 .eslintrc.js
 .prettierrc.js
 .gitignore
 .watchmanconfig
 
-# Dev dependencies
-Gemfile
-Gemfile.lock
-
+# CI/CD
+.travis.yml
+.circleci
+.github
 # IDEs
 .vscode
 .idea
 *.swp
 *.swo
+# Dev dependencies
+Gemfile
+Gemfile.lock
 
+
+
+# Misc
+.DS_Store
 # Git
 .git
 .github
+*.swp
+*.swo
+Thumbs.db
 
-# Misc
-*.log
-.DS_Store
+# Plan file (not needed for package users)
+PLAN.md
+
+node_modules
