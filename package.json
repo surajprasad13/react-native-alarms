@@ -1,18 +1,52 @@
 {
   "name": "react-native-alarms",
-  "version": "0.0.1",
+  "version": "0.1.0",
+  "description": "A powerful, cross-platform alarm management library for React Native",
   "private": false,
+  "main": "index.ts",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.ts"
+    },
+    "./service": {
+      "types": "./AlarmService.d.ts",
+      "default": "./AlarmService.ts"
+    }
+  },
   "scripts": {
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
-    "test": "jest"
+    "test": "jest",
+    "prepare": "npm run build",
+    "build": "tsc",
+    "clean": "rm -rf dist types *.d.ts"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/surajprasad13/react-native-alarms"
+  },
+  "keywords": [
+    "react-native",
+    "alarm",
+    "notification",
+    "schedule",
+    "cross-platform",
+    "ios",
+    "android"
+  ],
   "author": {
     "name": "Suraj Prasad",
     "email": "surajvishwakarma830@gmail.com",
     "url": "https://github.com/surajprasad13"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-native": ">=0.70.0"
   },
   "dependencies": {
     "react": "19.3.0",

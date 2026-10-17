@@ -1,97 +1,386 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# React Native Alarms 🔔
 
-# Getting Started
+A powerful, cross-platform alarm management library for React Native. Schedule, manage, and control alarms on both Android and iOS with a unified API.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+[![npm version](https://badge.fury.io/js/react-native-alarms.svg)](https://badge.fury.io/js/react-native-alarms)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Step 1: Start Metro
+## Features
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+✨ **Cross-Platform Support**
+- Seamless support for both Android and iOS
+- Native alarm implementation for reliable delivery
+- Background execution support
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+🎯 **Comprehensive Alarm Management**
+- Schedule one-time and recurring alarms (daily, weekly, interval-based)
+- Update and cancel alarms
+- Snooze and stop currently ringing alarms
+- Query alarm status
 
-```sh
-# Using npm
-npm start
+🔔 **Event-Driven Architecture**
+- Real-time events for alarm firing, dismissal, and snoozing
+- Easy event listener registration and cleanup
+- Full-screen alarm display on iOS 26+ with AlarmKit
+- Fallback to notifications on older devices
 
-# OR using Yarn
-yarn start
+🔐 **Permission Handling**
+- Automatic permission checking and requesting
+- Platform-specific permission management
+- Detailed permission status reporting
+
+## Installation
+
+```bash
+npm install react-native-alarms
+# or
+yarn add react-native-alarms
 ```
 
-## Step 2: Build and run your app
+### Native Module Linking
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+Since this is a native module, you'll need to link it:
 
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
+```bash
+cd ios && pod install && cd ..
 ```
+
+For Android, the native code should auto-link.
+
+## Quick Start
+
+### Basic Usage
+
+```typescript
+import { AlarmService } from 'react-native-alarms/service';
+
+// Check permissions
+const permission = await AlarmService.checkPermission();
+
+// Request permissions if needed
+if (permission.status !== 'granted') {
+  await AlarmService.requestPermission();
+}
+
+// Schedule an alarm for 10 minutes from now
+const alarmId = await AlarmService.scheduleAlarm({
+  timestamp: Date.now() + 10 * 60 * 1000,
+  title: 'Wake up!',
+  body: 'Time to start your day',
+  vibrate: true,
+  snoozeEnabled: true,
+  snoozeMinutes: 5,
+});
+
+console.log('Alarm scheduled:', alarmId);
+```
+
+### Listening to Alarm Events
+
+```typescript
+import { AlarmService } from 'react-native-alarms/service';
+
+// Listen for when alarm fires
+const unsubscribeFired = AlarmService.onAlarmFired((alarm) => {
+  console.log('Alarm fired:', alarm.title);
+});
+
+// Listen for when alarm is dismissed
+const unsubscribeDismissed = AlarmService.onAlarmDismissed((alarm) => {
+  console.log('Alarm dismissed:', alarm.alarmId);
+});
+
+// Listen for when alarm is snoozed
+const unsubscribeSnoozed = AlarmService.onAlarmSnoozed((alarm) => {
+  console.log('Alarm snoozed:', alarm.alarmId);
+});
+
+// Cleanup listeners when done
+unsubscribeFired();
+unsubscribeDismissed();
+unsubscribeSnoozed();
+```
+
+### Managing Alarms
+
+```typescript
+import { AlarmService } from 'react-native-alarms/service';
+
+// Get all scheduled alarms
+const alarms = await AlarmService.getAllAlarms();
+
+// Get a specific alarm
+const alarm = await AlarmService.getAlarm(alarmId);
+
+// Check if alarm is scheduled
+const isScheduled = await AlarmService.isScheduled(alarmId);
+
+// Update an alarm
+await AlarmService.updateAlarm(alarmId, {
+  timestamp: Date.now() + 20 * 60 * 1000,
+  title: 'Updated alarm',
+});
+
+// Snooze the currently ringing alarm
+await AlarmService.snoozeAlarm(alarmId, 10); // Snooze for 10 minutes
+
+// Stop the currently ringing alarm
+await AlarmService.stopAlarm(alarmId);
+
+// Cancel a specific alarm
+await AlarmService.cancelAlarm(alarmId);
+
+// Cancel all alarms
+await AlarmService.cancelAllAlarms();
+```
+
+## API Reference
+
+### Types
+
+#### `AlarmConfig`
+Configuration object for scheduling alarms.
+
+```typescript
+type AlarmConfig = {
+  alarmId?: string;           // Unique identifier (auto-generated if omitted)
+  timestamp: number;          // Time in milliseconds (Date.now() format)
+  title: string;              // Alarm title/label
+  body?: string;              // Alarm description
+  sound?: string;             // 'default' or custom sound file name
+  vibrate?: boolean;          // Enable vibration (Android only)
+  snoozeEnabled?: boolean;    // Allow snoozing
+  snoozeMinutes?: number;     // Snooze duration in minutes
+  repeat?: AlarmRepeat;       // Repeat configuration
+  data?: string;              // Custom JSON string payload
+};
+```
+
+#### `AlarmRepeat`
+Repeat configuration for recurring alarms.
+
+```typescript
+type AlarmRepeat = {
+  type: 'none' | 'daily' | 'weekly' | 'interval';
+  weekdays?: number[];        // 1 = Sunday, 7 = Saturday (for weekly)
+  intervalMs?: number;        // Interval in milliseconds (for interval type)
+};
+```
+
+#### `Alarm`
+Alarm object returned from queries.
+
+```typescript
+type Alarm = {
+  alarmId: string;
+  timestamp: number;
+  title: string;
+  body: string;
+  sound: string;
+  vibrate: boolean;
+  snoozeEnabled: boolean;
+  snoozeMinutes: number;
+  repeat: AlarmRepeat;
+  data: string;
+  enabled: boolean;
+  nextTriggerAt: number;      // 0 if no future trigger
+};
+```
+
+#### `AlarmPermission`
+Permission status object.
+
+```typescript
+type AlarmPermission = {
+  status: 'granted' | 'denied' | 'notDetermined';
+  notifications: boolean;
+  canScheduleExact: boolean;
+  canDrawOverlays: boolean;   // Android only
+  canUseFullScreenIntent: boolean; // Android only
+  backend?: string;           // iOS only: 'alarmkit' or 'notifications'
+};
+```
+
+## Platform-Specific Behavior
 
 ### iOS
+- **iOS 26+**: Uses native AlarmKit for real alarms that bypass silent mode
+- **iOS < 26**: Falls back to local notifications
+- Always handles vibration through system settings
+- Full-screen alarm display with system Stop/Snooze buttons
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+### Android
+- Requires `SCHEDULE_EXACT_ALARM` permission for exact timing
+- Uses full-screen notifications on lock screen
+- Respects silent mode (can be overridden with system settings)
+- Supports custom sounds from app bundle or file system
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+## Repeat Types
 
-```sh
-bundle install
+### None (One-time)
+```typescript
+{ type: 'none' }
 ```
 
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
+### Daily
+Rings at the same time every day.
+```typescript
+{ type: 'daily' }
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
+### Weekly
+Rings at the same time on specified days.
+```typescript
+{
+  type: 'weekly',
+  weekdays: [1, 3, 5] // Sunday, Wednesday, Friday
+}
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+### Interval
+Rings at regular intervals. Note: intervals reset if the app is killed.
+```typescript
+{
+  type: 'interval',
+  intervalMs: 3600000 // Every hour
+}
+```
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+## Complete Example
 
-## Step 3: Modify your app
+```typescript
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { AlarmService } from 'react-native-alarms/service';
 
-Now that you have successfully run the app, let's make changes!
+export function AlarmScreen() {
+  const [alarms, setAlarms] = useState([]);
+  const [permissions, setPermissions] = useState(null);
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+  useEffect(() => {
+    initializeAlarms();
+  }, []);
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+  const initializeAlarms = async () => {
+    const perms = await AlarmService.checkPermission();
+    setPermissions(perms);
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+    if (perms.status !== 'granted') {
+      await AlarmService.requestPermission();
+    }
 
-## Congratulations! :tada:
+    const allAlarms = await AlarmService.getAllAlarms();
+    setAlarms(allAlarms);
 
-You've successfully run and modified your React Native App. :partying_face:
+    const unsubFired = AlarmService.onAlarmFired((alarm) => {
+      console.log('🔔 Alarm fired:', alarm.title);
+    });
 
-### Now what?
+    const unsubSnoozed = AlarmService.onAlarmSnoozed((alarm) => {
+      console.log('😴 Alarm snoozed:', alarm.title);
+    });
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+    return () => {
+      unsubFired();
+      unsubSnoozed();
+    };
+  };
 
-# Troubleshooting
+  const scheduleAlarm = async () => {
+    const alarmId = await AlarmService.scheduleAlarm({
+      timestamp: Date.now() + 5 * 60 * 1000,
+      title: 'Time for a break!',
+      body: 'Take a moment to rest',
+      vibrate: true,
+      snoozeEnabled: true,
+      snoozeMinutes: 5,
+    });
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+    const updated = await AlarmService.getAllAlarms();
+    setAlarms(updated);
+  };
 
-# Learn More
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Alarm Manager</Text>
+      
+      <TouchableOpacity
+        style={styles.button}
+        onPress={scheduleAlarm}
+      >
+        <Text style={styles.buttonText}>Schedule Alarm</Text>
+      </TouchableOpacity>
 
-To learn more about React Native, take a look at the following resources:
+      <View style={styles.list}>
+        {alarms.map((alarm) => (
+          <View key={alarm.alarmId} style={styles.alarmItem}>
+            <Text>{alarm.title}</Text>
+            <Text>{new Date(alarm.timestamp).toLocaleTimeString()}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 20 },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
+  button: { backgroundColor: '#007AFF', padding: 12, borderRadius: 8 },
+  buttonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
+  list: { marginTop: 20 },
+  alarmItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee' },
+});
+```
+
+## Troubleshooting
+
+### "Alarm Native module is not linked"
+Ensure the native module is properly linked:
+```bash
+cd ios && pod install && cd ..
+```
+
+### Alarms not triggering
+1. Check permissions: `await AlarmService.checkPermission()`
+2. Ensure app has necessary permissions:
+   - Android: `SCHEDULE_EXACT_ALARM`, `POST_NOTIFICATIONS`
+   - iOS: Allow notifications in Settings
+
+### iOS-specific: Notifications instead of full-screen alarm
+- Full-screen alarms (AlarmKit) require iOS 26+
+- Older devices use local notifications
+- Check `permission.backend` to see which is active
+
+### Android-specific: Alarm doesn't ring when app is killed
+- Enable Autostart permissions on device
+- Check device's battery optimization settings
+- Some OEMs require manual approval in their app management screens
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+MIT © 2024 Suraj Prasad
+
+## Support
+
+For issues and questions, please visit:
+- GitHub Issues: https://github.com/surajprasad13/react-native-alarms/issues
+- Email: surajvishwakarma830@gmail.com
+
+## Changelog
+
+### v0.1.0
+- Improved TypeScript support with proper type exports
+- Added AlarmService convenience class
+- Comprehensive documentation
+- Fixed module linking issues
+
+### v0.0.1
+- Initial release
+- Cross-platform alarm scheduling
+- Event-driven architecture
+- Permission management

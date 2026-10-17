@@ -1,0 +1,19 @@
+/**
+ * React Native Alarms - Type definitions
+ * Cross-platform alarm management for React Native
+ */
+
+export type {
+  AlarmRepeat,
+  AlarmConfig,
+  Alarm,
+  AlarmPermission,
+  AlarmEvent,
+  Spec as AlarmModuleSpec,
+} from './specs/NativeAlarm';
+
+export { AlarmDemo } from './AlarmDemo';
+
+// Default export for backward compatibility
+import type NativeAlarm from './specs/NativeAlarm';
+export default NativeAlarm;

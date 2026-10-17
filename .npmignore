@@ -1,0 +1,47 @@
+# Development files
+__tests__
+test
+*.test.js
+*.test.ts
+*.test.tsx
+
+# Demo and example files
+AlarmDemo.tsx
+AlarmRingScreen.tsx
+App.tsx
+
+# Native build artifacts
+android/app/build
+ios/build
+*.xcarchive
+
+# Dependencies
+node_modules
+
+# Config files
+metro.config.js
+babel.config.js
+jest.config.js
+tsconfig.json
+.eslintrc.js
+.prettierrc.js
+.gitignore
+.watchmanconfig
+
+# Dev dependencies
+Gemfile
+Gemfile.lock
+
+# IDEs
+.vscode
+.idea
+*.swp
+*.swo
+
+# Git
+.git
+.github
+
+# Misc
+*.log
+.DS_Store
