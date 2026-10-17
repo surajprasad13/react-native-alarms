@@ -9,10 +9,8 @@ export type {
   Alarm,
   AlarmPermission,
   AlarmEvent,
+  Spec as AlarmModuleSpec,
 } from './specs/NativeAlarm';
 
-export type { Spec as AlarmModuleSpec } from './specs/NativeAlarm';
-
-// Default export for backward compatibility
-import type NativeAlarm from './specs/NativeAlarm';
-export default NativeAlarm;
+// Default export for type compatibility
+export type { Spec as default } from './specs/NativeAlarm';
