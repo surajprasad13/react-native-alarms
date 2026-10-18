@@ -45,7 +45,33 @@ Since this is a native module, you'll need to link it:
 cd ios && pod install && cd ..
 ```
 
-For Android, the native code should auto-link.
+For Android, the native code auto-links, including the permissions, ring activity,
+service and receivers in its manifest. No `MainApplication` or `AndroidManifest.xml`
+changes are needed. Rebuild the app after installing.
+
+### Register the ring screen
+
+When an alarm rings, both platforms show a full-screen React component registered as
+`AlarmRing`, with the alarm (`alarmId`, `title`, `body`, `snoozeEnabled`,
+`snoozeMinutes`, `data`) as props. Register your own component in `index.js`:
+
+```js
+import { AppRegistry } from 'react-native';
+import { AlarmRingScreen } from './src/AlarmRingScreen';
+
+AppRegistry.registerComponent('AlarmRing', () => AlarmRingScreen);
+```
+
+Call `Alarm.stopAlarm(alarmId)` or `Alarm.snoozeAlarm(alarmId, minutes)` from its
+buttons; the screen closes itself.
+
+### Direct module access
+
+```ts
+import Alarm, { AlarmService } from 'react-native-alarms';
+
+const id = await Alarm.scheduleAlarm({ timestamp: Date.now() + 60_000, title: 'Wake up' });
+```
 
 ## Quick Start
 

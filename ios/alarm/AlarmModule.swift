@@ -20,13 +20,26 @@ final class AlarmModule: RCTEventEmitter {
   override init() {
     super.init()
     NotificationBackend.install()
-    NotificationBackend.shared.onEvent = { [weak self] name, alarm in self?.emit(name, alarm) }
+    NotificationBackend.shared.onEvent = { [weak self] name, alarm in self?.handle(name, alarm) }
     #if canImport(AlarmKit)
     if #available(iOS 26.0, *) {
-      AlarmKitBackend.shared.onEvent = { [weak self] name, alarm in self?.emit(name, alarm) }
+      AlarmKitBackend.shared.onEvent = { [weak self] name, alarm in self?.handle(name, alarm) }
       AlarmKitBackend.shared.startObserving()
     }
     #endif
+    // App launched by tapping the alarm notification before this module existed.
+    if let ringing = NotificationBackend.shared.ringing {
+      DispatchQueue.main.async { [weak self] in AlarmRingPresenter.present(ringing, bridge: self?.bridge) }
+    }
+  }
+
+  private func handle(_ name: String, _ alarm: AlarmData) {
+    if name == Self.eventFired {
+      AlarmRingPresenter.present(alarm, bridge: bridge)
+    } else {
+      AlarmRingPresenter.dismiss(alarm.id)
+    }
+    emit(name, alarm)
   }
 
   @objc override static func requiresMainQueueSetup() -> Bool { false }
@@ -61,6 +74,7 @@ final class AlarmModule: RCTEventEmitter {
   }
 
   private func cancelNative(_ id: String) {
+    AlarmRingPresenter.dismiss(id)
     NotificationBackend.shared.cancel(id)
     #if canImport(AlarmKit)
     if #available(iOS 26.0, *) { AlarmKitBackend.shared.cancel(id) }
@@ -207,6 +221,7 @@ final class AlarmModule: RCTEventEmitter {
 
   @objc(cancelAllAlarms:reject:)
   func cancelAllAlarms(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    AlarmRingPresenter.dismiss()
     AlarmStore.all().forEach { cancelNative($0.id) }
     NotificationBackend.shared.cancelAll()
     #if canImport(AlarmKit)
@@ -220,6 +235,7 @@ final class AlarmModule: RCTEventEmitter {
 
   @objc(stopAlarm:resolve:reject:)
   func stopAlarm(_ alarmId: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    AlarmRingPresenter.dismiss(alarmId)
     NotificationBackend.shared.stop(alarmId)
     #if canImport(AlarmKit)
     if #available(iOS 26.0, *) { AlarmKitBackend.shared.stop(alarmId) }
@@ -233,6 +249,7 @@ final class AlarmModule: RCTEventEmitter {
       return reject("E_NOT_FOUND", "Alarm \(alarmId) not found", nil)
     }
     let mins = minutes > 0 ? Int(minutes) : alarm.snoozeMinutes
+    AlarmRingPresenter.dismiss(alarmId)
 
     #if canImport(AlarmKit)
     if #available(iOS 26.0, *), useAlarmKit {

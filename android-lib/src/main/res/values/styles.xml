@@ -1,0 +1,3 @@
+<resources>
+    <style name="RNAlarmRingTheme" parent="Theme.AppCompat.DayNight.NoActionBar" />
+</resources>

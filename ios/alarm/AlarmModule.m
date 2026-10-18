@@ -1,5 +1,30 @@
 #import <React/RCTBridgeModule.h>
 #import <React/RCTEventEmitter.h>
+#import <UIKit/UIKit.h>
+
+// The notification delegate must be set before launch finishes, or a tap on an alarm
+// notification that launches the app is lost. JS creates the module lazily, so install
+// it here instead of requiring an AppDelegate change in every app.
+@interface RNAlarmBootstrap : NSObject
+@end
+
+@implementation RNAlarmBootstrap
+
++ (void)load
+{
+  [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidFinishLaunchingNotification
+                                                    object:nil
+                                                     queue:nil
+                                                usingBlock:^(NSNotification *note) {
+    Class backend = NSClassFromString(@"RNAlarmNotificationBackend");
+    SEL install = NSSelectorFromString(@"install");
+    if ([backend respondsToSelector:install]) {
+      ((void (*)(id, SEL))[backend methodForSelector:install])(backend, install);
+    }
+  }];
+}
+
+@end
 
 // Exposes the Swift `AlarmModule` to JS as `NativeModules.Alarm`, the same name
 // as Android's `AlarmModule.NAME`. Method names and signatures match Android.

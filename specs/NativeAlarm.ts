@@ -1,5 +1,5 @@
 import type { TurboModule } from 'react-native';
-import { TurboModuleRegistry } from 'react-native';
+import { NativeModules, Platform, TurboModuleRegistry } from 'react-native';
 
 /**
  * Shared contract of the native `Alarm` module.
@@ -92,4 +92,22 @@ export interface Spec extends TurboModule {
   removeListeners(count: number): void;
 }
 
-export default TurboModuleRegistry.getEnforcing<Spec>('Alarm');
+const LINKING_ERROR =
+  "react-native-alarms: the native 'Alarm' module is not linked. " +
+  Platform.select({
+    ios: "Run 'pod install' in the ios folder, then rebuild the app.",
+    default: 'Rebuild the app after installing the package.',
+  });
+
+// Both platforms register a legacy module, reachable through either registry
+// depending on the architecture. Throw on first use, not on import.
+const Alarm: Spec =
+  TurboModuleRegistry.get<Spec>('Alarm') ??
+  NativeModules.Alarm ??
+  new Proxy({} as Spec, {
+    get() {
+      throw new Error(LINKING_ERROR);
+    },
+  });
+
+export default Alarm;

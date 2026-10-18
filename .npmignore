@@ -35,6 +35,8 @@ android/app/build
 ios/build
 ios/Pods
 **/Pods
+ios/Podfile.lock
+ios/*.xcworkspace/xcuserdata
 *.xcarchive
 
 # Documentation source (README is included)
@@ -81,3 +83,8 @@ Thumbs.db
 PLAN.md
 
 node_modules
+
+# Example app entry
+index.js
+app.json
+android-lib/build

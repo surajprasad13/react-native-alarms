@@ -18,6 +18,7 @@
 		7A1A000000000000000B0004 /* AlarmStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1A000000000000000A0004 /* AlarmStore.swift */; };
 		7A1A000000000000000B0005 /* AlarmKitBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1A000000000000000A0005 /* AlarmKitBackend.swift */; };
 		7A1A000000000000000B0006 /* NotificationBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1A000000000000000A0006 /* NotificationBackend.swift */; };
+		7A1A000000000000000B0007 /* AlarmRingPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1A000000000000000A0007 /* AlarmRingPresenter.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 /* End PBXBuildFile section */
 
@@ -37,6 +38,7 @@
 		7A1A000000000000000A0004 /* AlarmStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmStore.swift; sourceTree = "<group>"; };
 		7A1A000000000000000A0005 /* AlarmKitBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmKitBackend.swift; sourceTree = "<group>"; };
 		7A1A000000000000000A0006 /* NotificationBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationBackend.swift; sourceTree = "<group>"; };
+		7A1A000000000000000A0007 /* AlarmRingPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmRingPresenter.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = ReactNativeAlarm/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
@@ -84,6 +86,7 @@
 				7A1A000000000000000A0004 /* AlarmStore.swift */,
 				7A1A000000000000000A0005 /* AlarmKitBackend.swift */,
 				7A1A000000000000000A0006 /* NotificationBackend.swift */,
+				7A1A000000000000000A0007 /* AlarmRingPresenter.swift */,
 			);
 			path = alarm;
 			sourceTree = "<group>";
@@ -283,6 +286,7 @@
 				7A1A000000000000000B0004 /* AlarmStore.swift in Sources */,
 				7A1A000000000000000B0005 /* AlarmKitBackend.swift in Sources */,
 				7A1A000000000000000B0006 /* NotificationBackend.swift in Sources */,
+				7A1A000000000000000B0007 /* AlarmRingPresenter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

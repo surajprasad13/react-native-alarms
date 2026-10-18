@@ -7,6 +7,7 @@ import UserNotifications
 /// Limitations compared with a real alarm: sound plays for at most ~30 s, the
 /// silent switch and Focus modes are respected, and `interval` repeats are
 /// pre-scheduled as a batch of exact one-off notifications (see `schedule`).
+@objc(RNAlarmNotificationBackend)
 final class NotificationBackend: NSObject, UNUserNotificationCenterDelegate {
   static let shared = NotificationBackend()
 
@@ -24,11 +25,23 @@ final class NotificationBackend: NSObject, UNUserNotificationCenterDelegate {
   /// Wired by `AlarmModule` so native events reach JS.
   var onEvent: ((String, AlarmData) -> Void)?
 
+  /// Delegate that was installed before us (e.g. Notifee); non-alarm notifications go to it.
+  private weak var previousDelegate: UNUserNotificationCenterDelegate?
+  private static var installed = false
+
   /// Installs the delegate and actions. Call once at launch so a tap on a
   /// notification that starts the app is delivered to the module.
-  static func install() {
+  @objc static func install() {
     let center = UNUserNotificationCenter.current()
-    if center.delegate == nil { center.delegate = shared }
+    // Only once: a library that took over after us forwards to us, and taking the
+    // delegate back would make the two forward to each other forever.
+    if !installed {
+      installed = true
+      if center.delegate !== shared {
+        shared.previousDelegate = center.delegate
+        center.delegate = shared
+      }
+    }
     let snooze = UNNotificationAction(identifier: actionSnooze, title: "Snooze", options: [])
     let stop = UNNotificationAction(identifier: actionStop, title: "Stop", options: [.destructive])
     center.setNotificationCategories([
@@ -196,11 +209,19 @@ final class NotificationBackend: NSObject, UNUserNotificationCenterDelegate {
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
-    if let a = alarm(from: notification) {
-      ringing = a
-      onEvent?(AlarmModule.eventFired, a)
+    guard let a = alarm(from: notification) else {
+      if let previous = previousDelegate,
+         previous.responds(to: #selector(UNUserNotificationCenterDelegate.userNotificationCenter(_:willPresent:withCompletionHandler:))) {
+        previous.userNotificationCenter?(center, willPresent: notification, withCompletionHandler: completionHandler)
+      } else {
+        completionHandler([.banner, .list, .sound])
+      }
+      return
     }
-    completionHandler([.banner, .list, .sound])
+    ringing = a
+    onEvent?(AlarmModule.eventFired, a)
+    // The ring screen takes over; keep the sound but skip the banner when it can show.
+    completionHandler(onEvent == nil ? [.banner, .list, .sound] : [.list, .sound])
   }
 
   func userNotificationCenter(
@@ -208,8 +229,16 @@ final class NotificationBackend: NSObject, UNUserNotificationCenterDelegate {
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
+    guard let a = alarm(from: response.notification) else {
+      if let previous = previousDelegate,
+         previous.responds(to: #selector(UNUserNotificationCenterDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:))) {
+        previous.userNotificationCenter?(center, didReceive: response, withCompletionHandler: completionHandler)
+      } else {
+        completionHandler()
+      }
+      return
+    }
     defer { completionHandler() }
-    guard let a = alarm(from: response.notification) else { return }
     switch response.actionIdentifier {
     case Self.actionSnooze:
       snooze(a, minutes: a.snoozeMinutes)
