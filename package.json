@@ -1,6 +1,6 @@
 {
   "name": "react-native-alarms",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A powerful, cross-platform alarm management library for React Native",
   "private": false,
   "main": "index.ts",
