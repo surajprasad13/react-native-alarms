@@ -15,12 +15,17 @@ final class AlarmRingPresenter {
 
   static func present(_ alarm: AlarmData, bridge: RCTBridge?, attempt: Int = 0) {
     DispatchQueue.main.async {
-      if controller != nil, alarmId == alarm.id { return }
-      // Cold start from a notification tap: the root surface or window may not be
-      // ready yet, so retry briefly.
+      if controller != nil, alarmId == alarm.id {
+        // Already showing (e.g. presented while backgrounded, now foregrounded):
+        // still make sure the native sound yields to the screen's own TTS.
+        silenceIfActive(alarm.id)
+        return
+      }
+      // Cold start from a notification tap or the AlarmKit "Open" button: the root
+      // surface or window may not be ready yet, so retry for up to ~15 s.
       guard let surface = makeSurface(bridge, props: alarm.toDictionary()),
             let top = topViewController() else {
-        if attempt < 20 {
+        if attempt < 60 {
           DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
             present(alarm, bridge: bridge, attempt: attempt + 1)
           }
@@ -42,6 +47,7 @@ final class AlarmRingPresenter {
         top.present(vc, animated: true)
         controller = vc
         alarmId = alarm.id
+        silenceIfActive(alarm.id)
       }
       if let existing = controller {
         existing.dismiss(animated: false, completion: show)
@@ -49,6 +55,18 @@ final class AlarmRingPresenter {
         show()
       }
     }
+  }
+
+  /// The ring screen speaks the task via TTS, and iOS won't play it over the
+  /// notification / AlarmKit sound, so stop that sound once the screen is up.
+  /// Only while the app is frontmost: in the background the system alert is the
+  /// only thing the user can hear, so it must keep ringing.
+  private static func silenceIfActive(_ id: String) {
+    guard UIApplication.shared.applicationState == .active else { return }
+    NotificationBackend.shared.silence(id)
+    #if canImport(AlarmKit)
+    if #available(iOS 26.0, *) { AlarmKitBackend.shared.silence(id) }
+    #endif
   }
 
   /// Called when ringing ends for any reason (stop, snooze, cancel).

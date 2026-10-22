@@ -16,6 +16,7 @@ final class AlarmModule: RCTEventEmitter {
   static let eventSnoozed = "onAlarmSnoozed"
 
   private var hasListeners = false
+  private var activeObserver: NSObjectProtocol?
 
   override init() {
     super.init()
@@ -27,10 +28,26 @@ final class AlarmModule: RCTEventEmitter {
       AlarmKitBackend.shared.startObserving()
     }
     #endif
-    // App launched by tapping the alarm notification before this module existed.
-    if let ringing = NotificationBackend.shared.ringing {
-      DispatchQueue.main.async { [weak self] in AlarmRingPresenter.present(ringing, bridge: self?.bridge) }
-    }
+    // App launched by tapping the alarm notification/alert before this module existed.
+    DispatchQueue.main.async { [weak self] in self?.presentIfRinging() }
+    // Tapping an AlarmKit alert (and some notification taps on a warm start) only
+    // foregrounds the app without any delegate callback, so also check on activation.
+    activeObserver = NotificationCenter.default.addObserver(
+      forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
+    ) { [weak self] _ in self?.presentIfRinging() }
+  }
+
+  deinit {
+    if let activeObserver { NotificationCenter.default.removeObserver(activeObserver) }
+  }
+
+  /// Shows the ring screen when a backend says an alarm is ringing right now.
+  private func presentIfRinging() {
+    var ringing = NotificationBackend.shared.ringing
+    #if canImport(AlarmKit)
+    if #available(iOS 26.0, *), ringing == nil { ringing = AlarmKitBackend.shared.ringingAlarm() }
+    #endif
+    if let ringing { AlarmRingPresenter.present(ringing, bridge: bridge) }
   }
 
   private func handle(_ name: String, _ alarm: AlarmData) {

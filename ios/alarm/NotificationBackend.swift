@@ -169,6 +169,12 @@ final class NotificationBackend: NSObject, UNUserNotificationCenterDelegate {
     if ringing?.id == a.id { ringing = nil }
   }
 
+  /// Stops the notification's sound (by clearing the delivered notification) while the
+  /// in-app ring screen takes over; `ringing` stays set so the session is still live.
+  func silence(_ id: String) {
+    center.removeDeliveredNotifications(withIdentifiers: ids(for: id))
+  }
+
   func cancel(_ id: String) {
     center.removePendingNotificationRequests(withIdentifiers: ids(for: id))
     center.removeDeliveredNotifications(withIdentifiers: ids(for: id))
