@@ -45,13 +45,19 @@ export class AlarmService {
     if (!alarmEmitter || !this.subscriptions.length) {
       this.subscriptions = [
         alarmEmitter?.addListener('onAlarmFired', (data: any) => {
-          this.listeners.fired.forEach(listener => listener(data as AlarmEvent));
+          this.listeners.fired.forEach(listener =>
+            listener(data as AlarmEvent),
+          );
         }),
         alarmEmitter?.addListener('onAlarmDismissed', (data: any) => {
-          this.listeners.dismissed.forEach(listener => listener(data as AlarmEvent));
+          this.listeners.dismissed.forEach(listener =>
+            listener(data as AlarmEvent),
+          );
         }),
         alarmEmitter?.addListener('onAlarmSnoozed', (data: any) => {
-          this.listeners.snoozed.forEach(listener => listener(data as AlarmEvent));
+          this.listeners.snoozed.forEach(listener =>
+            listener(data as AlarmEvent),
+          );
         }),
       ].filter(Boolean);
     }
@@ -189,6 +195,12 @@ export class AlarmService {
   static async isScheduled(alarmId: string): Promise<boolean> {
     if (!alarm) throw new Error('Alarm module not linked');
     return alarm.isScheduled(alarmId);
+  }
+
+  /** Opens the vendor Autostart screen on Android; resolves false on iOS. */
+  static async openAutoStartSettings(): Promise<boolean> {
+    if (!alarm) throw new Error('Alarm module not linked');
+    return alarm.openAutoStartSettings();
   }
 }
 

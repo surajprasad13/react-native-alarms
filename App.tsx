@@ -1,6 +1,6 @@
 import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AlarmDemo } from './AlarmDemo';
+import { AlarmDemo } from './src/screens/AlarmDemo';
 
 function App() {
   return (
