@@ -8,13 +8,13 @@ import type { Spec } from './specs/NativeAlarm';
 export type {
   AlarmRepeat,
   AlarmConfig,
-  Alarm,
+  AlarmProp,
   AlarmPermission,
   AlarmEvent,
-  Spec as AlarmModuleSpec,
-} from './specs/NativeAlarm';
+} from './src/types';
 
 export { AlarmService } from './AlarmService';
 
 declare const Alarm: Spec;
+
 export default Alarm;
