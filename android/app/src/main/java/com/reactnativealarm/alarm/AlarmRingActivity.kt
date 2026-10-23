@@ -18,7 +18,8 @@ import java.lang.ref.WeakReference
  */
 class AlarmRingActivity : ReactActivity() {
 
-  override fun getMainComponentName(): String = COMPONENT_NAME
+  override fun getMainComponentName(): String =
+    AlarmService.current?.componentName?.takeIf { it.isNotBlank() } ?: COMPONENT_NAME
 
   override fun createReactActivityDelegate(): ReactActivityDelegate =
     object : DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled) {
@@ -45,7 +46,7 @@ class AlarmRingActivity : ReactActivity() {
       @Suppress("DEPRECATION")
       window.addFlags(
         WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-          WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
       )
     }
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)

@@ -8,7 +8,7 @@
 export type {
   AlarmRepeat,
   AlarmConfig,
-  Alarm,
+  AlarmProp,
   AlarmPermission,
   AlarmEvent,
   Spec as AlarmModuleSpec,
@@ -16,5 +16,6 @@ export type {
 
 export { AlarmService } from './AlarmService';
 
-import NativeAlarm from './specs/NativeAlarm';
-export default NativeAlarm;
+import Alarm from './specs/NativeAlarm';
+
+export default Alarm;

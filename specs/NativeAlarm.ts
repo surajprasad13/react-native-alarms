@@ -1,97 +1,130 @@
 import type { TurboModule } from 'react-native';
 import { NativeModules, Platform, TurboModuleRegistry } from 'react-native';
+import { AlarmPermission, AlarmConfig, AlarmProp } from '../src/types';
 
 /**
- * Shared contract of the native `Alarm` module.
- *
- * Both platforms register a legacy-style module named `Alarm` with these exact
- * method names (Android: AlarmModule.kt, iOS: ios/alarm/AlarmModule.swift) and
- * emit the same events through `NativeEventEmitter`:
- *   onAlarmFired | onAlarmDismissed | onAlarmSnoozed  -> AlarmEvent
+ * Native Alarm module interface.
  */
-
-/** type: 'none' | 'daily' | 'weekly' | 'interval' */
-export type AlarmRepeat = {
-  type: string;
-  weekdays?: number[]; // 1 = Sunday ... 7 = Saturday (weekly)
-  intervalMs?: number; // interval
-};
-
-export type AlarmConfig = {
-  alarmId?: string;
-  timestamp: number; // ms since epoch
-  title: string;
-  body?: string;
-  sound?: string; // 'default' or a bundled sound file name
-  vibrate?: boolean; // Android only (iOS alarms always vibrate per system settings)
-  snoozeEnabled?: boolean;
-  snoozeMinutes?: number;
-  repeat?: AlarmRepeat;
-  data?: string; // JSON string payload
-};
-
-export type Alarm = {
-  alarmId: string;
-  timestamp: number;
-  title: string;
-  body: string;
-  sound: string;
-  vibrate: boolean;
-  snoozeEnabled: boolean;
-  snoozeMinutes: number;
-  repeat: AlarmRepeat;
-  data: string;
-  enabled: boolean;
-  nextTriggerAt: number; // 0 if none
-};
-
-/** status: 'granted' | 'denied' | 'notDetermined' */
-export type AlarmPermission = {
-  status: string;
-  notifications: boolean;
-  canScheduleExact: boolean;
-  canDrawOverlays: boolean; // Android only; always true on iOS
-  canUseFullScreenIntent: boolean; // Android only; always true on iOS
-  backend?: string; // iOS only: 'alarmkit' (iOS 26+) | 'notifications'
-};
-
-export type AlarmEvent = {
-  alarmId: string;
-  timestamp: number;
-  title: string;
-  body: string;
-  data: string;
-};
-
 export interface Spec extends TurboModule {
-  // ---------- Permissions ----------
+  // ---------------------------------------------------------------------------
+  // Permissions
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns the current permission status.
+   */
   checkPermission(): Promise<AlarmPermission>;
+
+  /**
+   * Requests any required permissions.
+   */
   requestPermission(): Promise<AlarmPermission>;
+
+  /**
+   * Checks whether exact alarms can be scheduled.
+   *
+   * Android only.
+   */
   canScheduleExactAlarms(): Promise<boolean>;
-  /** Opens the vendor Autostart screen on Android; resolves false on iOS. */
+
+  /**
+   * Opens the device's Autostart settings screen.
+   *
+   * Android:
+   * Opens the vendor-specific Autostart page when available.
+   *
+   * iOS:
+   * Resolves `false`.
+   */
   openAutoStartSettings(): Promise<boolean>;
 
-  // ---------- Scheduling ----------
+  // ---------------------------------------------------------------------------
+  // Scheduling
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Schedules a new alarm.
+   *
+   * Returns the generated or provided alarm ID.
+   */
   scheduleAlarm(config: AlarmConfig): Promise<string>;
+
+  /**
+   * Updates an existing alarm.
+   *
+   * Returns `true` if the update succeeds.
+   */
   updateAlarm(alarmId: string, config: AlarmConfig): Promise<boolean>;
+
+  /**
+   * Cancels a specific alarm.
+   */
   cancelAlarm(alarmId: string): Promise<boolean>;
+
+  /**
+   * Cancels every scheduled alarm.
+   */
   cancelAllAlarms(): Promise<void>;
 
-  // ---------- Control (while ringing) ----------
-  stopAlarm(alarmId: string): Promise<void>;
-  snoozeAlarm(alarmId: string, minutes: number): Promise<void>;
-  getRingingAlarm(): Promise<Alarm | null>;
+  // ---------------------------------------------------------------------------
+  // Ringing Controls
+  // ---------------------------------------------------------------------------
 
-  // ---------- Queries ----------
-  getAlarm(alarmId: string): Promise<Alarm | null>;
-  getAllAlarms(): Promise<Alarm[]>;
+  /**
+   * Stops the currently ringing alarm.
+   */
+  stopAlarm(alarmId: string): Promise<void>;
+
+  /**
+   * Snoozes the currently ringing alarm.
+   *
+   * @param alarmId Alarm identifier.
+   * @param minutes Snooze duration in minutes.
+   */
+  snoozeAlarm(alarmId: string, minutes: number): Promise<void>;
+
+  /**
+   * Returns the currently ringing alarm, if one exists.
+   */
+  getRingingAlarm(): Promise<AlarmProp | null>;
+
+  // ---------------------------------------------------------------------------
+  // Queries
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns a scheduled alarm by ID.
+   */
+  getAlarm(alarmId: string): Promise<AlarmProp | null>;
+
+  /**
+   * Returns every scheduled alarm.
+   */
+  getAllAlarms(): Promise<AlarmProp[]>;
+
+  /**
+   * Checks whether an alarm is scheduled.
+   */
   isScheduled(alarmId: string): Promise<boolean>;
 
-  // ---------- Events (used by NativeEventEmitter) ----------
+  // ---------------------------------------------------------------------------
+  // NativeEventEmitter Support
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Internal listener registration.
+   */
   addListener(eventName: string): void;
+
+  /**
+   * Internal listener cleanup.
+   */
   removeListeners(count: number): void;
 }
 
+/**
+ * Error shown when the native module is unavailable.
+ */
 const LINKING_ERROR =
   "react-native-alarms: the native 'Alarm' module is not linked. " +
   Platform.select({
@@ -99,8 +132,24 @@ const LINKING_ERROR =
     default: 'Rebuild the app after installing the package.',
   });
 
-// Both platforms register a legacy module, reachable through either registry
-// depending on the architecture. Throw on first use, not on import.
+/**
+ * Cross-platform native Alarm module.
+ *
+ * Supports both the legacy Native Module system and the New Architecture
+ * (TurboModules). The module is resolved lazily so importing it does not
+ * immediately throw if native linking is missing.
+ *
+ * @example
+ * ```ts
+ * import Alarm from 'react-native-alarms';
+ *
+ * const id = await Alarm.scheduleAlarm({
+ *   timestamp: Date.now() + 60000,
+ *   title: 'Meeting',
+ *   body: 'Standup starts now',
+ * });
+ * ```
+ */
 const Alarm: Spec =
   TurboModuleRegistry.get<Spec>('Alarm') ??
   NativeModules.Alarm ??
