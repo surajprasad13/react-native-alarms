@@ -107,6 +107,11 @@ export class AlarmService {
    * Check if an alarm is scheduled
    */
   static isScheduled(alarmId: string): Promise<boolean>;
+
+  /**
+   * Opens the vendor Autostart screen on Android; resolves false on iOS.
+   */
+  static openAutoStartSettings(): Promise<boolean>;
 }
 
 export default AlarmService;

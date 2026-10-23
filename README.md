@@ -361,6 +361,22 @@ const styles = StyleSheet.create({
 });
 ```
 
+## 📸 Screenshots, Demos & Examples
+
+Explore how `react-native-alarms` works on Android and iOS.
+
+### 🖼️ Screenshots
+
+| Sample 1 | Sample 2 | Sample 3 |
+|---|---|---|
+| <img src="src/assets/sample-1.png" width="180" alt="Sample 1" /> | <img src="src/assets/sample-2.png" width="180" alt="Sample 2" /> | <img src="src/assets/sample-3.png" width="180" alt="Sample 3" /> |
+
+### 🎥 Demo Video
+
+Watch the library in action, including alarm scheduling, ringing, and Stop/Snooze interactions.
+
+[▶️ Watch the React Native Alarms Demo](src/assets/recording.mp4)
+
 ## Troubleshooting
 
 ### "Alarm Native module is not linked"
