@@ -10,7 +10,7 @@ import {
   NativeModules,
   Platform,
 } from 'react-native';
-import type { AlarmEvent, AlarmPermission } from '../../specs/NativeAlarm';
+import type { AlarmEvent, AlarmPermission } from '../types';
 
 // Same module name and API on Android (AlarmModule.kt) and iOS (AlarmModule.swift).
 const { Alarm } = NativeModules;

@@ -11,8 +11,7 @@ export type {
   AlarmProp,
   AlarmPermission,
   AlarmEvent,
-  Spec as AlarmModuleSpec,
-} from './specs/NativeAlarm';
+} from './src/types';
 
 export { AlarmService } from './AlarmService';
 
