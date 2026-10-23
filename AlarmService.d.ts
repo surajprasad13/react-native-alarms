@@ -31,7 +31,7 @@ import type {
   AlarmProp,
   AlarmPermission,
   AlarmEvent,
-} from './specs/NativeAlarm';
+} from './src/types';
 
 /**
  * Callback invoked when an alarm lifecycle event occurs.

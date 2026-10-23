@@ -31,7 +31,8 @@ import type {
   AlarmProp,
   AlarmPermission,
   AlarmEvent,
-} from './specs/NativeAlarm';
+} from './src/types';
+import { AlarmRegistry } from './src/utils';
 
 const { Alarm: NativeAlarm } = NativeModules;
 
@@ -236,8 +237,15 @@ export class AlarmService {
    * ```
    */
   static async scheduleAlarm(config: AlarmConfig): Promise<string> {
-    if (!alarm) throw new Error('Alarm module not linked');
-    return alarm.scheduleAlarm(config);
+    if (!alarm) {
+      throw new Error('Alarm module not linked');
+    }
+    const componentName = AlarmRegistry.resolve(config.presentation?.type);
+    return alarm.scheduleAlarm({
+      ...config,
+      componentName,
+      componentProps: config.presentation?.props ?? {},
+    });
   }
 
   /**

@@ -16,11 +16,11 @@ struct AlarmData: Codable {
   var intervalMs: Double
   var data: String
   var enabled: Bool = true
-
+  
   static func now() -> Double { Date().timeIntervalSince1970 * 1000 }
-
+  
   var date: Date { Date(timeIntervalSince1970: timestamp / 1000) }
-
+  
   /// Next time this alarm should ring, in ms since epoch, or 0 if never.
   func nextTrigger(from: Double = AlarmData.now()) -> Double {
     if !enabled { return 0 }
@@ -37,7 +37,7 @@ struct AlarmData: Codable {
       return timestamp > from ? timestamp : 0
     }
   }
-
+  
   private func nextMatching(from: Double, ok: (Int) -> Bool) -> Double {
     let cal = Calendar.current
     let base = cal.dateComponents([.hour, .minute], from: date)
@@ -55,9 +55,9 @@ struct AlarmData: Codable {
     }
     return 0
   }
-
+  
   // MARK: - JS bridge shape (same keys as Android)
-
+  
   func toDictionary() -> [String: Any] {
     [
       "alarmId": id,
@@ -74,7 +74,7 @@ struct AlarmData: Codable {
       "nextTriggerAt": nextTrigger(),
     ]
   }
-
+  
   /// Parses the `AlarmConfig` object JS passes to `scheduleAlarm` / `updateAlarm`.
   static func from(config m: [String: Any], id: String) -> AlarmData {
     let r = m["repeat"] as? [String: Any]
