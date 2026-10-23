@@ -70,6 +70,44 @@ AppRegistry.registerComponent('AlarmRing', () => AlarmRingScreen);
 Call `Alarm.stopAlarm(alarmId)` or `Alarm.snoozeAlarm(alarmId, minutes)` from its
 buttons; the screen closes itself.
 
+#### Custom presentation component
+
+You can register **multiple** ring screens and choose which one fires per alarm using the `presentation` field in `AlarmConfig`:
+
+```js
+// index.js
+import { AppRegistry } from 'react-native';
+import { AlarmRingScreen } from './src/AlarmRingScreen';
+import { ReminderScreen } from './src/ReminderScreen';
+
+AppRegistry.registerComponent('AlarmRing', () => AlarmRingScreen);   // default
+AppRegistry.registerComponent('Reminder', () => ReminderScreen);     // custom
+```
+
+```ts
+import { AlarmRegistry, AlarmService } from 'react-native-alarms/service';
+
+// 1. Map your key to the registered component name
+AlarmRegistry.register('reminder', 'Reminder');
+
+// 2. Pass it when scheduling
+await AlarmService.scheduleAlarm({
+  timestamp: Date.now() + 60_000,
+  title: 'Standup',
+  presentation: {
+    type: 'reminder',           // resolves to the 'Reminder' component
+    props: { color: '#6200EE' } // forwarded to the screen as componentProps
+  },
+});
+```
+
+The native layer maps `presentation` to two internal fields:
+
+| Internal field | Type | Default | Description |
+|---|---|---|---|
+| `componentName` | `string` | `"AlarmRing"` | Registered `AppRegistry` component name shown when the alarm rings. |
+| `componentProps` / `componentPropsJSON` | `object` / `string` | `{}` | Key-value props forwarded to the ring screen on **both platforms**. On Android they arrive as top-level bundle extras and a nested `componentProps` map; on iOS as a parsed `[String: Any]` dictionary. |
+
 ### Direct module access
 
 ```ts
@@ -184,8 +222,27 @@ type AlarmConfig = {
   snoozeMinutes?: number;     // Snooze duration in minutes
   repeat?: AlarmRepeat;       // Repeat configuration
   data?: string;              // Custom JSON string payload
+  presentation?: AlarmPresentation; // Custom ring screen & props
+};
+
+type AlarmPresentation = {
+  /** Registered presentation type (key passed to AlarmRegistry.register). */
+  type?: string;
+  /**
+   * Props forwarded to the ring screen component.
+   * Available as `componentProps` on both Android and iOS.
+   */
+  props?: Record<string, unknown>;
 };
 ```
+
+> **How the native layer stores these:** `AlarmConfig.presentation` is resolved by `AlarmService` before being handed off to the native module. The resulting fields stored in the native `AlarmData` model are:
+>
+> | Field | Type | Default | Description |
+> |---|---|---|---|
+> | `componentName` | `string` | `"AlarmRing"` | The `AppRegistry` name of the component shown at ring time. Derived from `AlarmRegistry.resolve(presentation.type)`. |
+> | `componentProps` | `object` | `{}` | Parsed props object (from `presentation.props`). Available on both platforms at ring time as `componentProps`. |
+> | `componentPropsJSON` | `string` | `"{}"` | JSON-serialised representation of `componentProps`, persisted alongside the alarm so props survive a device reboot. |
 
 #### `AlarmRepeat`
 Repeat configuration for recurring alarms.
@@ -438,27 +495,99 @@ For issues and questions, please visit:
 
 The library supports completely custom alarm UI screens with custom data payloads.
 
-### Basic Custom Screen Example
+### Using `componentName` and `componentProps`
+
+The `presentation` field lets you choose **which registered component** is displayed and pass **arbitrary props** directly to it — without encoding everything inside a JSON `data` string.
+
+#### 1. Register your screens
+
+```js
+// index.js
+import { AppRegistry } from 'react-native';
+import { AlarmRingScreen }   from './src/AlarmRingScreen';
+import { MeetingAlarmScreen } from './src/MeetingAlarmScreen';
+
+AppRegistry.registerComponent('AlarmRing',    () => AlarmRingScreen);    // default fallback
+AppRegistry.registerComponent('MeetingAlarm', () => MeetingAlarmScreen); // custom
+```
+
+#### 2. Map a key to the component name
+
+```ts
+import { AlarmRegistry } from 'react-native-alarms';
+
+AlarmRegistry.register('meeting', 'MeetingAlarm');
+```
+
+#### 3. Schedule with `presentation`
 
 ```typescript
-import { NativeModules } from 'react-native';
 import { AlarmService } from 'react-native-alarms/service';
 
-export function MyCustomAlarmScreen({ alarmId, title, data }) {
-  const customData = JSON.parse(data || '{}');
+await AlarmService.scheduleAlarm({
+  timestamp: Date.now() + 5 * 60 * 1000,
+  title: 'Team standup',
+  presentation: {
+    type: 'meeting',                    // resolves to 'MeetingAlarm'
+    props: {
+      roomName: 'Zoom Room A',
+      meetingUrl: 'https://zoom.us/j/123',
+      accentColor: '#6200EE',
+    },
+  },
+});
+```
 
+#### 4. Receive `componentProps` in your screen
+
+The props passed via `presentation.props` are forwarded to the ring screen on both platforms:
+
+```typescript
+// MeetingAlarmScreen.tsx
+type Props = {
+  alarmId: string;
+  title: string;
+  snoozeEnabled: boolean;
+  snoozeMinutes: number;
+  data?: string;
+  // componentProps fields arrive as top-level props:
+  roomName?: string;
+  meetingUrl?: string;
+  accentColor?: string;
+};
+
+export function MeetingAlarmScreen({
+  alarmId,
+  title,
+  snoozeEnabled,
+  snoozeMinutes,
+  roomName,
+  meetingUrl,
+  accentColor = '#007AFF',
+}: Props) {
   return (
-    <View style={{ backgroundColor: customData.color }}>
-      <Text>{title}</Text>
+    <View style={{ flex: 1, backgroundColor: accentColor }}>
+      <Text style={{ fontSize: 28, color: '#fff' }}>{title}</Text>
+      <Text style={{ color: '#fff' }}>{roomName}</Text>
+
+      {snoozeEnabled && (
+        <TouchableOpacity onPress={() => AlarmService.snoozeAlarm(alarmId, snoozeMinutes)}>
+          <Text>Snooze {snoozeMinutes} min</Text>
+        </TouchableOpacity>
+      )}
       <TouchableOpacity onPress={() => AlarmService.stopAlarm(alarmId)}>
-        <Text>Stop</Text>
+        <Text>Dismiss</Text>
       </TouchableOpacity>
     </View>
   );
 }
 ```
 
-### Passing Custom Data
+> **Platform behaviour**
+> - **Android**: `componentProps` entries are flattened into the launch `Bundle` alongside standard fields (`alarmId`, `title`, etc.), and also available as a nested `componentProps` bundle. The `AlarmRingActivity` uses `componentName` to resolve which registered React root to display.
+> - **iOS**: `componentProps` (parsed from `componentPropsJSON`) is merged into the surface's initial properties passed to the React component.
+
+### Passing Custom Data (legacy approach)
 
 ```typescript
 await AlarmService.scheduleAlarm({
