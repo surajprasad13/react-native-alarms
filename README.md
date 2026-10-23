@@ -1,6 +1,11 @@
 # React Native Alarms 🔔
 
-A powerful, cross-platform alarm management library for React Native. Schedule, manage, and control alarms on both Android and iOS with a unified API.
+A cross-platform native scheduling, reminder, and wake-up system for React Native. Schedule time-sensitive events on Android and iOS, deliver reminders, and present a registered custom React Native screen when a scheduled event fires—using one unified API.
+
+Although it can power a traditional alarm clock, react-native-alarms is also useful for exact-time reminders, scheduled check-ins, custom lock-screen experiences, and time-based app workflows. Build the experience around your own UI and event data instead of being limited to a standard alarm screen.
+
+> **Platform note:** The operating system controls background delivery and screen presentation. Exact timing, full-screen presentation, and behavior when an app is terminated depend on platform version, permissions, device settings, and the native scheduling mechanism. This library does not provide unrestricted background JavaScript execution.
+
 
 [![npm version](https://badge.fury.io/js/react-native-alarms.svg)](https://badge.fury.io/js/react-native-alarms)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

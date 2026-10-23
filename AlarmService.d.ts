@@ -1,115 +1,219 @@
 /**
- * AlarmService - High-level alarm management API
- * Provides convenient wrapper methods for the native alarm module
+ * High-level alarm management API.
+ *
+ * Provides convenient wrapper methods for managing native alarms,
+ * including scheduling, updating, cancelling, snoozing, and monitoring
+ * alarm lifecycle events.
+ *
+ * This service can be used for alarms, scheduled reminders, and other
+ * time-sensitive experiences supported by the native alarm module.
+ *
+ * @example
+ * ```typescript
+ * import { AlarmService } from 'react-native-alarms';
+ *
+ * const permission = await AlarmService.checkPermission();
+ *
+ * if (permission.status !== 'granted') {
+ *   await AlarmService.requestPermission();
+ * }
+ *
+ * const alarmId = await AlarmService.scheduleAlarm({
+ *   timestamp: Date.now() + 60_000,
+ *   title: 'Reminder',
+ *   body: 'Your scheduled reminder is ready.',
+ * });
+ * ```
  */
 
 import type {
   AlarmConfig,
-  Alarm,
+  AlarmProp,
   AlarmPermission,
   AlarmEvent,
 } from './specs/NativeAlarm';
 
+/**
+ * Callback invoked when an alarm lifecycle event occurs.
+ *
+ * @param alarm - Information about the alarm associated with the event.
+ */
 type AlarmEventListener = (alarm: AlarmEvent) => void;
 
 /**
- * High-level alarm service for managing alarms
+ * Static service for managing native alarms.
+ *
+ * All methods can be called directly without creating an instance.
  */
 export class AlarmService {
   /**
-   * Initialize the alarm service and set up event listeners
+   * Initializes the alarm service and registers native event listeners.
+   *
+   * Call this method to begin forwarding native alarm events to
+   * registered JavaScript listeners. Event registration methods may
+   * also initialize the service automatically.
    */
   static initialize(): void;
 
   /**
-   * Cleanup event listeners
+   * Removes native event subscriptions created by the service.
+   *
+   * Registered JavaScript callbacks may remain registered, depending
+   * on the implementation. Reinitialize the service before expecting
+   * to receive native events again.
    */
   static cleanup(): void;
 
   /**
-   * Register a listener for when alarms fire
-   * @returns unsubscribe function
+   * Registers a listener for when an alarm fires.
+   *
+   * @param listener - Callback invoked with the fired alarm's event data.
+   * @returns A function that unregisters this listener.
+   *
+   * @example
+   * ```typescript
+   * const unsubscribe = AlarmService.onAlarmFired((alarm) => {
+   *   console.log('Alarm fired:', alarm);
+   * });
+   *
+   * // Unsubscribe when no longer needed.
+   * unsubscribe();
+   * ```
    */
   static onAlarmFired(listener: AlarmEventListener): () => void;
 
   /**
-   * Register a listener for when alarms are dismissed
-   * @returns unsubscribe function
+   * Registers a listener for when an alarm is dismissed.
+   *
+   * @param listener - Callback invoked with the dismissed alarm's event data.
+   * @returns A function that unregisters this listener.
    */
   static onAlarmDismissed(listener: AlarmEventListener): () => void;
 
   /**
-   * Register a listener for when alarms are snoozed
-   * @returns unsubscribe function
+   * Registers a listener for when an alarm is snoozed.
+   *
+   * @param listener - Callback invoked with the snoozed alarm's event data.
+   * @returns A function that unregisters this listener.
    */
   static onAlarmSnoozed(listener: AlarmEventListener): () => void;
 
   /**
-   * Check the current alarm permissions
+   * Checks the current alarm permission status.
+   *
+   * @returns A promise resolving to the current permission information.
+   * @throws If the native alarm module is unavailable.
    */
   static checkPermission(): Promise<AlarmPermission>;
 
   /**
-   * Request alarm permissions
+   * Requests the permissions required by the native alarm functionality.
+   *
+   * @returns A promise resolving to the resulting permission information.
+   * @throws If the native alarm module is unavailable.
    */
   static requestPermission(): Promise<AlarmPermission>;
 
   /**
-   * Schedule a new alarm
-   * @returns alarm ID
+   * Schedules a new alarm.
+   *
+   * @param config - Configuration describing the alarm to schedule.
+   * @returns A promise resolving to the ID assigned to the scheduled alarm.
+   * @throws If the native alarm module is unavailable or scheduling fails.
    */
   static scheduleAlarm(config: AlarmConfig): Promise<string>;
 
   /**
-   * Update an existing alarm
-   * @returns boolean indicating success
+   * Updates an existing scheduled alarm.
+   *
+   * @param alarmId - ID of the alarm to update.
+   * @param config - Updated configuration for the alarm.
+   * @returns A promise resolving to `true` if the update succeeds.
+   * @throws If the native alarm module is unavailable or the update fails.
    */
   static updateAlarm(alarmId: string, config: AlarmConfig): Promise<boolean>;
 
   /**
-   * Cancel an alarm
-   * @returns boolean if alarm existed
+   * Cancels a scheduled alarm.
+   *
+   * @param alarmId - ID of the alarm to cancel.
+   * @returns A promise resolving to `true` if the alarm was cancelled.
+   * @throws If the native alarm module is unavailable.
    */
   static cancelAlarm(alarmId: string): Promise<boolean>;
 
   /**
-   * Cancel all alarms
+   * Cancels all scheduled alarms.
+   *
+   * @returns A promise that resolves when the cancellation operation completes.
+   * @throws If the native alarm module is unavailable.
    */
   static cancelAllAlarms(): Promise<void>;
 
   /**
-   * Stop the currently ringing alarm
+   * Stops a currently ringing alarm.
+   *
+   * @param alarmId - ID of the ringing alarm to stop.
+   * @returns A promise that resolves when the stop operation completes.
+   * @throws If the native alarm module is unavailable.
    */
   static stopAlarm(alarmId: string): Promise<void>;
 
   /**
-   * Snooze the currently ringing alarm
-   * @param minutes - snooze duration (defaults to alarm's snoozeMinutes)
+   * Snoozes a currently ringing alarm.
+   *
+   * @param alarmId - ID of the alarm to snooze.
+   * @param minutes - Optional snooze duration in minutes. If omitted,
+   * the native implementation or alarm configuration determines the default.
+   * @returns A promise that resolves when the snooze operation completes.
+   * @throws If the native alarm module is unavailable or snoozing fails.
    */
   static snoozeAlarm(alarmId: string, minutes?: number): Promise<void>;
 
   /**
-   * Get the currently ringing alarm (if any)
+   * Retrieves the currently ringing alarm, if one exists.
+   *
+   * @returns A promise resolving to the ringing alarm, or `null` if none exists.
+   * @throws If the native alarm module is unavailable.
    */
-  static getRingingAlarm(): Promise<Alarm | null>;
+  static getRingingAlarm(): Promise<AlarmProp | null>;
 
   /**
-   * Get a specific alarm by ID
+   * Retrieves a specific alarm by its ID.
+   *
+   * @param alarmId - ID of the alarm to retrieve.
+   * @returns A promise resolving to the alarm, or `null` if it is not found.
+   * @throws If the native alarm module is unavailable.
    */
-  static getAlarm(alarmId: string): Promise<Alarm | null>;
+  static getAlarm(alarmId: string): Promise<AlarmProp | null>;
 
   /**
-   * Get all scheduled alarms
+   * Retrieves all alarms known to the native alarm module.
+   *
+   * @returns A promise resolving to an array of alarm records.
+   * @throws If the native alarm module is unavailable.
    */
-  static getAllAlarms(): Promise<Alarm[]>;
+  static getAllAlarms(): Promise<AlarmProp[]>;
 
   /**
-   * Check if an alarm is scheduled
+   * Checks whether an alarm is currently scheduled.
+   *
+   * @param alarmId - ID of the alarm to check.
+   * @returns A promise resolving to `true` if the alarm is scheduled;
+   * otherwise, `false`.
+   * @throws If the native alarm module is unavailable.
    */
   static isScheduled(alarmId: string): Promise<boolean>;
 
   /**
-   * Opens the vendor Autostart screen on Android; resolves false on iOS.
+   * Opens the device manufacturer's Auto Start settings on Android,
+   * where supported, to help users configure background launch behavior.
+   *
+   * On iOS, this method resolves to `false`.
+   *
+   * @returns A promise resolving to `true` if the settings screen was opened;
+   * otherwise, `false`.
+   * @throws If the native alarm module is unavailable.
    */
   static openAutoStartSettings(): Promise<boolean>;
 }
