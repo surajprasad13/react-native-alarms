@@ -31,14 +31,14 @@ class AlarmModule(private val ctx: ReactApplicationContext) : ReactContextBaseJa
   private fun notificationsGranted(): Boolean =
     if (Build.VERSION.SDK_INT >= 33)
       ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) ==
-        PackageManager.PERMISSION_GRANTED
+              PackageManager.PERMISSION_GRANTED
     else NotificationManagerCompat.from(ctx).areNotificationsEnabled()
 
   private fun canDrawOverlays(): Boolean = Settings.canDrawOverlays(ctx)
 
   private fun canUseFullScreenIntent(): Boolean =
     Build.VERSION.SDK_INT < 34 ||
-      ctx.getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
+            ctx.getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
 
   private fun permissionMap(): WritableMap = Arguments.createMap().apply {
     val ok = notificationsGranted()

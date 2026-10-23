@@ -16,10 +16,24 @@ struct AlarmData: Codable {
   var intervalMs: Double
   var data: String
   var enabled: Bool = true
+  var componentName: String = "AlarmRing"
+  var componentPropsJSON: String = "{}"
   
   static func now() -> Double { Date().timeIntervalSince1970 * 1000 }
   
   var date: Date { Date(timeIntervalSince1970: timestamp / 1000) }
+
+   var componentProps: [String: Any] {
+        guard
+            let jsonData = componentPropsJSON.data(using: .utf8),
+            let object = try? JSONSerialization.jsonObject(with: jsonData),
+            let props = object as? [String: Any]
+        else {
+            return [:]
+        }
+
+        return props
+    }
   
   /// Next time this alarm should ring, in ms since epoch, or 0 if never.
   func nextTrigger(from: Double = AlarmData.now()) -> Double {

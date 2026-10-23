@@ -187,7 +187,10 @@ final class AlarmKitBackend {
     if !silenced.values.contains(where: { $0.id == a.id }) {
       silenced[Self.uuid(for: a.id)] = a
     }
-    DispatchQueue.main.async { AlarmRingPresenter.present(a, bridge: nil) }
+    DispatchQueue.main.async { AlarmRingPresenter.present(a, bridge: nil,
+                                                          componentName: a.componentName,
+                                                          componentProps: a.componentProps
+    ) }
   }
   
   /// Stops the system alert's sound/UI while the in-app ring screen takes over.

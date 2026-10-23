@@ -47,12 +47,16 @@ final class AlarmModule: RCTEventEmitter {
 #if canImport(AlarmKit)
     if #available(iOS 26.0, *), ringing == nil { ringing = AlarmKitBackend.shared.ringingAlarm() }
 #endif
-    if let ringing { AlarmRingPresenter.present(ringing, bridge: bridge) }
+    if let ringing { AlarmRingPresenter.present(ringing, bridge: bridge,
+                                                componentName: ringing.componentName ?? "AlarmRing",
+                                                componentProps: ringing.componentProps ?? [:]) }
   }
   
   private func handle(_ name: String, _ alarm: AlarmData) {
     if name == Self.eventFired {
-      AlarmRingPresenter.present(alarm, bridge: bridge)
+      AlarmRingPresenter.present(alarm, bridge: bridge,
+                                 componentName: alarm.componentName ?? "AlarmRing",
+                                 componentProps: alarm.componentProps ?? [:])
     } else {
       AlarmRingPresenter.dismiss(alarm.id)
     }

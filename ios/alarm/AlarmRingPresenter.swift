@@ -8,12 +8,15 @@ import UIKit
 /// so this shows when the alarm fires while the app is in the foreground, or when the
 /// user opens the app by tapping the alarm notification.
 final class AlarmRingPresenter {
-  static let componentName = "AlarmRing"
+  private static let defaultComponentName = "AlarmRing"
   
   private static weak var controller: UIViewController?
   private static var alarmId: String?
   
-  static func present(_ alarm: AlarmData, bridge: RCTBridge?, attempt: Int = 0) {
+  static func present(_ alarm: AlarmData, bridge: RCTBridge?,
+                      componentName: String = defaultComponentName,
+                      componentProps: [String: Any] = [:],
+                      attempt: Int = 0) {
     DispatchQueue.main.async {
       if controller != nil, alarmId == alarm.id {
         // Already showing (e.g. presented while backgrounded, now foregrounded):
@@ -23,7 +26,9 @@ final class AlarmRingPresenter {
       }
       // Cold start from a notification tap or the AlarmKit "Open" button: the root
       // surface or window may not be ready yet, so retry for up to ~15 s.
-      guard let surface = makeSurface(bridge, props: alarm.toDictionary()),
+      guard let surface = makeSurface(bridge,
+                                      componentName: componentName,
+                                      props: alarm.toDictionary()),
             let top = topViewController() else {
         if attempt < 60 {
           DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
@@ -84,7 +89,9 @@ final class AlarmRingPresenter {
   /// `RCTSurfacePresenter` implements `createFabricSurfaceForModuleName:initialProperties:`
   /// without formally adopting `RCTSurfacePresenterStub`, and its header is ObjC++ (not
   /// importable from Swift), so call it by selector.
-  private static func makeSurface(_ bridge: RCTBridge?, props: [String: Any]) -> RCTSurfaceProtocol? {
+  private static func makeSurface(_ bridge: RCTBridge?,
+                                  componentName: String,
+                                  props: [String: Any]) -> RCTSurfaceProtocol? {
     guard let presenter = surfacePresenter(bridge), presenter.responds(to: createSurface) else { return nil }
     return presenter.perform(createSurface, with: componentName, with: props)?
       .takeUnretainedValue() as? RCTSurfaceProtocol
