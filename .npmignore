@@ -64,6 +64,9 @@ tsconfig.json
 .idea
 *.swp
 *.swo
+.cxx/
+build/
+.gradle
 # Dev dependencies
 Gemfile
 Gemfile.lock
