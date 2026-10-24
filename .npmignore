@@ -91,3 +91,6 @@ node_modules
 index.js
 app.json
 android-lib/build
+.bundle
+.husky
+commitlint.config.mjs
