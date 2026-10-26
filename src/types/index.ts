@@ -92,6 +92,12 @@ export type AlarmConfig = {
   body?: string;
 
   /**
+   * Optional image URI (for example, a `file://` path or an `https://` URL).
+   * Passed to the ringing screen and shown in native notifications when supported.
+   */
+  image?: string;
+
+  /**
    * Alarm sound.
    *
    * Use `"default"` or a bundled sound file name.
@@ -151,6 +157,9 @@ export type AlarmProp = {
 
   /** Alarm body. */
   body: string;
+
+  /** Optional image URI. */
+  image?: string;
 
   /** Sound being used. */
   sound: string;
@@ -241,6 +250,17 @@ export type AlarmEvent = {
   /** Alarm body. */
   body: string;
 
+  /** Optional image URI. */
+  image?: string;
+
   /** Custom JSON payload. */
   data: string;
 };
+
+export type AlarmEventMap = {
+  onAlarmFired: AlarmEvent;
+  onAlarmDismissed: AlarmEvent;
+  onAlarmSnoozed: AlarmEvent;
+};
+
+export type AlarmEventName = keyof AlarmEventMap;

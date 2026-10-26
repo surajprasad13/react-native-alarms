@@ -7,6 +7,7 @@ struct AlarmData: Codable {
   var timestamp: Double // ms since epoch
   var title: String
   var body: String
+  var image: String? = nil
   var sound: String
   var vibrate: Bool
   var snoozeEnabled: Bool
@@ -78,6 +79,7 @@ struct AlarmData: Codable {
       "timestamp": timestamp,
       "title": title,
       "body": body,
+      "image": image ?? "",
       "sound": sound,
       "vibrate": vibrate,
       "snoozeEnabled": snoozeEnabled,
@@ -97,6 +99,7 @@ struct AlarmData: Codable {
       timestamp: (m["timestamp"] as? NSNumber)?.doubleValue ?? 0,
       title: m["title"] as? String ?? "",
       body: m["body"] as? String ?? "",
+      image: m["image"] as? String,
       sound: m["sound"] as? String ?? "default",
       vibrate: (m["vibrate"] as? NSNumber)?.boolValue ?? true,
       snoozeEnabled: (m["snoozeEnabled"] as? NSNumber)?.boolValue ?? true,

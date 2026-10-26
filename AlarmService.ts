@@ -25,36 +25,60 @@
  * });
  * ```
  */
-import { NativeEventEmitter, NativeModules } from 'react-native';
+import { NativeEventEmitter, type EmitterSubscription } from 'react-native';
 import type {
   AlarmConfig,
   AlarmProp,
   AlarmPermission,
   AlarmEvent,
+  AlarmEventMap,
+  AlarmEventName,
 } from './src/types';
 import { AlarmRegistry } from './src/utils';
-
-const { Alarm: NativeAlarm } = NativeModules;
+import Alarm, { getNativeAlarmModule } from './specs/NativeAlarm';
 
 /**
- * Resolves the native alarm module when it is linked.
- *
- * The module is loaded conditionally so importing the service does not
- * immediately fail when the native module is unavailable.
+ * Resolves the native module when available and keeps the lazy proxy as a
+ * fallback so missing native linking is reported when an operation is called.
  */
-const alarm = NativeAlarm ? require('./specs/NativeAlarm').default : null;
+const nativeAlarm = getNativeAlarmModule();
+const alarm = nativeAlarm ?? Alarm;
 
 /**
  * Native event emitter used to subscribe to alarm lifecycle events.
  */
-const alarmEmitter = NativeAlarm ? new NativeEventEmitter(NativeAlarm) : null;
+const alarmEmitter = nativeAlarm ? new NativeEventEmitter(nativeAlarm) : null;
 
 /**
  * Callback invoked when a native alarm event is received.
  *
  * @param alarm Event data emitted by the native alarm module.
  */
-type AlarmEventListener = (alarm: AlarmEvent) => void;
+type AlarmEventListener<K extends AlarmEventName = AlarmEventName> = (
+  alarm: AlarmEventMap[K],
+) => void;
+
+const ALARM_EVENT_NAMES = [
+  'onAlarmFired',
+  'onAlarmDismissed',
+  'onAlarmSnoozed',
+] as const satisfies readonly AlarmEventName[];
+
+function isAlarmEvent(value: Object): value is AlarmEvent {
+  return (
+    'alarmId' in value &&
+    typeof value.alarmId === 'string' &&
+    'timestamp' in value &&
+    typeof value.timestamp === 'number' &&
+    'title' in value &&
+    typeof value.title === 'string' &&
+    'body' in value &&
+    typeof value.body === 'string' &&
+    'data' in value &&
+    typeof value.data === 'string' &&
+    (!('image' in value) || typeof value.image === 'string')
+  );
+}
 
 /**
  * High-level service for scheduling and managing native alarms.
@@ -83,19 +107,17 @@ export class AlarmService {
    * more than once for the same event.
    */
   private static listeners: {
-    fired: Set<AlarmEventListener>;
-    dismissed: Set<AlarmEventListener>;
-    snoozed: Set<AlarmEventListener>;
+    [K in AlarmEventName]: Set<AlarmEventListener<K>>;
   } = {
-    fired: new Set(),
-    dismissed: new Set(),
-    snoozed: new Set(),
+    onAlarmFired: new Set(),
+    onAlarmDismissed: new Set(),
+    onAlarmSnoozed: new Set(),
   };
 
   /**
    * Native event subscriptions created by {@link initialize}.
    */
-  private static subscriptions: any[] = [];
+  private static subscriptions: EmitterSubscription[] = [];
 
   /**
    * Initializes native event forwarding.
@@ -107,25 +129,18 @@ export class AlarmService {
    * This method is called automatically by the event subscription helpers.
    */
   static initialize(): void {
-    if (!alarmEmitter || !this.subscriptions.length) {
-      this.subscriptions = [
-        alarmEmitter?.addListener('onAlarmFired', (data: any) => {
-          this.listeners.fired.forEach(listener =>
-            listener(data as AlarmEvent),
+    if (!alarmEmitter || this.subscriptions.length) return;
+    this.subscriptions = ALARM_EVENT_NAMES.map(eventName =>
+      alarmEmitter.addListener(eventName, (event: Object) => {
+        if (!isAlarmEvent(event)) {
+          console.error(
+            `[react-native-alarms] Ignoring invalid ${eventName} event payload`,
           );
-        }),
-        alarmEmitter?.addListener('onAlarmDismissed', (data: any) => {
-          this.listeners.dismissed.forEach(listener =>
-            listener(data as AlarmEvent),
-          );
-        }),
-        alarmEmitter?.addListener('onAlarmSnoozed', (data: any) => {
-          this.listeners.snoozed.forEach(listener =>
-            listener(data as AlarmEvent),
-          );
-        }),
-      ].filter(Boolean);
-    }
+          return;
+        }
+        this.listeners[eventName].forEach(listener => listener(event));
+      }),
+    );
   }
 
   /**
@@ -139,7 +154,7 @@ export class AlarmService {
    * remove individual callbacks.
    */
   static cleanup(): void {
-    this.subscriptions.forEach(sub => sub?.remove());
+    this.subscriptions.forEach(sub => sub.remove());
     this.subscriptions = [];
   }
 
@@ -161,11 +176,10 @@ export class AlarmService {
    * unsubscribe();
    * ```
    */
-  static onAlarmFired(listener: AlarmEventListener): () => boolean {
-    this.initialize();
-    this.listeners.fired.add(listener);
-
-    return () => this.listeners.fired.delete(listener);
+  static onAlarmFired(
+    listener: AlarmEventListener<'onAlarmFired'>,
+  ): () => void {
+    return this.subscribe('onAlarmFired', listener);
   }
 
   /**
@@ -174,11 +188,10 @@ export class AlarmService {
    * @param listener Callback invoked with the dismissed alarm's event data.
    * @returns A function that unregisters this callback.
    */
-  static onAlarmDismissed(listener: AlarmEventListener): () => boolean {
-    this.initialize();
-    this.listeners.dismissed.add(listener);
-
-    return () => this.listeners.dismissed.delete(listener);
+  static onAlarmDismissed(
+    listener: AlarmEventListener<'onAlarmDismissed'>,
+  ): () => void {
+    return this.subscribe('onAlarmDismissed', listener);
   }
 
   /**
@@ -187,11 +200,21 @@ export class AlarmService {
    * @param listener Callback invoked with the snoozed alarm's event data.
    * @returns A function that unregisters this callback.
    */
-  static onAlarmSnoozed(listener: AlarmEventListener): () => boolean {
-    this.initialize();
-    this.listeners.snoozed.add(listener);
+  static onAlarmSnoozed(
+    listener: AlarmEventListener<'onAlarmSnoozed'>,
+  ): () => void {
+    return this.subscribe('onAlarmSnoozed', listener);
+  }
 
-    return () => this.listeners.snoozed.delete(listener);
+  private static subscribe<K extends AlarmEventName>(
+    eventName: K,
+    listener: AlarmEventListener<K>,
+  ): () => void {
+    this.initialize();
+    this.listeners[eventName].add(listener);
+    return () => {
+      this.listeners[eventName].delete(listener);
+    };
   }
 
   /**
@@ -201,7 +224,6 @@ export class AlarmService {
    * @throws Error if the native alarm module is not linked.
    */
   static async checkPermission(): Promise<AlarmPermission> {
-    if (!alarm) throw new Error('Alarm module not linked');
     return alarm.checkPermission();
   }
 
@@ -214,7 +236,6 @@ export class AlarmService {
    * @throws Error if the native alarm module is not linked.
    */
   static async requestPermission(): Promise<AlarmPermission> {
-    if (!alarm) throw new Error('Alarm module not linked');
     return alarm.requestPermission();
   }
 
@@ -237,15 +258,7 @@ export class AlarmService {
    * ```
    */
   static async scheduleAlarm(config: AlarmConfig): Promise<string> {
-    if (!alarm) {
-      throw new Error('Alarm module not linked');
-    }
-    const componentName = AlarmRegistry.resolve(config.presentation?.type);
-    return alarm.scheduleAlarm({
-      ...config,
-      componentName,
-      componentProps: config.presentation?.props ?? {},
-    });
+    return alarm.scheduleAlarm(this.toNativeConfig(config));
   }
 
   /**
@@ -260,8 +273,17 @@ export class AlarmService {
     alarmId: string,
     config: AlarmConfig,
   ): Promise<boolean> {
-    if (!alarm) throw new Error('Alarm module not linked');
-    return alarm.updateAlarm(alarmId, config);
+    return alarm.updateAlarm(alarmId, this.toNativeConfig(config));
+  }
+
+  private static toNativeConfig<T extends AlarmConfig>(
+    config: T,
+  ): T & { componentName: string; componentProps: Record<string, unknown> } {
+    return {
+      ...config,
+      componentName: AlarmRegistry.resolve(config.presentation?.type),
+      componentProps: config.presentation?.props ?? {},
+    };
   }
 
   /**
@@ -272,7 +294,6 @@ export class AlarmService {
    * @throws Error if the native alarm module is not linked.
    */
   static async cancelAlarm(alarmId: string): Promise<boolean> {
-    if (!alarm) throw new Error('Alarm module not linked');
     return alarm.cancelAlarm(alarmId);
   }
 
@@ -283,7 +304,6 @@ export class AlarmService {
    * @throws Error if the native alarm module is not linked.
    */
   static async cancelAllAlarms(): Promise<void> {
-    if (!alarm) throw new Error('Alarm module not linked');
     return alarm.cancelAllAlarms();
   }
 
@@ -295,7 +315,6 @@ export class AlarmService {
    * @throws Error if the native alarm module is not linked.
    */
   static async stopAlarm(alarmId: string): Promise<void> {
-    if (!alarm) throw new Error('Alarm module not linked');
     return alarm.stopAlarm(alarmId);
   }
 
@@ -313,7 +332,6 @@ export class AlarmService {
    * ```
    */
   static async snoozeAlarm(alarmId: string, minutes?: number): Promise<void> {
-    if (!alarm) throw new Error('Alarm module not linked');
     return alarm.snoozeAlarm(alarmId, minutes ?? 5);
   }
 
@@ -325,7 +343,6 @@ export class AlarmService {
    * @throws Error if the native alarm module is not linked.
    */
   static async getRingingAlarm(): Promise<AlarmProp | null> {
-    if (!alarm) throw new Error('Alarm module not linked');
     return alarm.getRingingAlarm();
   }
 
@@ -337,7 +354,6 @@ export class AlarmService {
    * @throws Error if the native alarm module is not linked.
    */
   static async getAlarm(alarmId: string): Promise<AlarmProp | null> {
-    if (!alarm) throw new Error('Alarm module not linked');
     return alarm.getAlarm(alarmId);
   }
 
@@ -348,7 +364,6 @@ export class AlarmService {
    * @throws Error if the native alarm module is not linked.
    */
   static async getAllAlarms(): Promise<AlarmProp[]> {
-    if (!alarm) throw new Error('Alarm module not linked');
     return alarm.getAllAlarms();
   }
 
@@ -360,7 +375,6 @@ export class AlarmService {
    * @throws Error if the native alarm module is not linked.
    */
   static async isScheduled(alarmId: string): Promise<boolean> {
-    if (!alarm) throw new Error('Alarm module not linked');
     return alarm.isScheduled(alarmId);
   }
 
@@ -377,7 +391,6 @@ export class AlarmService {
    * @throws Error if the native alarm module is not linked.
    */
   static async openAutoStartSettings(): Promise<boolean> {
-    if (!alarm) throw new Error('Alarm module not linked');
     return alarm.openAutoStartSettings();
   }
 }

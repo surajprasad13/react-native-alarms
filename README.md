@@ -44,7 +44,7 @@ yarn add react-native-alarms
 
 ### Native Module Linking
 
-Since this is a native module, you'll need to link it:
+For a bare React Native app, install the iOS pods and rebuild:
 
 ```bash
 cd ios && pod install && cd ..
@@ -54,11 +54,32 @@ For Android, the native code auto-links, including the permissions, ring activit
 service and receivers in its manifest. No `MainApplication` or `AndroidManifest.xml`
 changes are needed. Rebuild the app after installing.
 
+### Expo
+
+The library works with Expo projects that generate and build native projects
+(prebuild, EAS Build, or a development build). It uses React Native autolinking and
+does not require an Expo config plugin:
+
+```bash
+npm install react-native-alarms
+npx expo prebuild
+npx expo run:android
+# or
+npx expo run:ios
+```
+
+Rebuild the native app after installing or upgrading the library. **Expo Go is not
+supported** because it cannot load this library's native alarm module. Existing bare
+React Native installation and setup remain unchanged.
+Register the `AlarmRing` component in your app's JavaScript entry point as described
+below; Expo Router apps should do this from a custom entry point before loading
+`expo-router/entry`.
+
 ### Register the ring screen
 
 When an alarm rings, both platforms show a full-screen React component registered as
 `AlarmRing`, with the alarm (`alarmId`, `title`, `body`, `snoozeEnabled`,
-`snoozeMinutes`, `data`) as props. Register your own component in `index.js`:
+`snoozeMinutes`, `data`, and optional `image`) as props. Register your own component in `index.js`:
 
 ```js
 import { AppRegistry } from 'react-native';
@@ -216,6 +237,7 @@ type AlarmConfig = {
   timestamp: number;          // Time in milliseconds (Date.now() format)
   title: string;              // Alarm title/label
   body?: string;              // Alarm description
+  image?: string;             // file:// or https:// image URI for ring screen/notifications
   sound?: string;             // 'default' or custom sound file name
   vibrate?: boolean;          // Enable vibration (Android only)
   snoozeEnabled?: boolean;    // Allow snoozing
@@ -235,6 +257,24 @@ type AlarmPresentation = {
   props?: Record<string, unknown>;
 };
 ```
+
+Pass a URI string for `image`; for example:
+
+```ts
+await AlarmService.scheduleAlarm({
+  timestamp: Date.now() + 60_000,
+  title: 'Appointment',
+  image: 'https://example.com/appointment.jpg',
+});
+```
+
+When provided, `image` is returned with queried alarms and alarm events, passed to
+the registered ring screen as an initial prop, and used for the native notification
+image where supported. Android accepts `https://`, `file://`, and `content://` URIs.
+iOS notification attachments accept `https://` and `file://` URIs; the iOS 26+
+AlarmKit system alert itself does not display custom images, but the image URI is
+available to the React Native ring screen when it opens. Render it in that screen
+with React Native's `Image` component and `source={{ uri: image }}`.
 
 > **How the native layer stores these:** `AlarmConfig.presentation` is resolved by `AlarmService` before being handed off to the native module. The resulting fields stored in the native `AlarmData` model are:
 >
@@ -264,6 +304,7 @@ type Alarm = {
   timestamp: number;
   title: string;
   body: string;
+  image?: string;
   sound: string;
   vibrate: boolean;
   snoozeEnabled: boolean;
@@ -602,4 +643,3 @@ await AlarmService.scheduleAlarm({
 ```
 
 **Full Guide:** See [CUSTOM_UI_GUIDE.md](./CUSTOM_UI_GUIDE.md) for complete examples and best practices.
-

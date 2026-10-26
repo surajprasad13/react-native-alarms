@@ -77,6 +77,21 @@ describe('Native Alarm module', () => {
     );
   });
 
+  it('uses the actionable linking error through AlarmService', async () => {
+    const { AlarmService } = require('../AlarmService');
+
+    await expect(AlarmService.checkPermission()).rejects.toThrow(
+      /native 'Alarm' module is not linked/,
+    );
+  });
+
+  it('allows event subscriptions to be registered before native linking', () => {
+    const { AlarmService } = require('../AlarmService');
+    const unsubscribe = AlarmService.onAlarmFired(jest.fn());
+
+    expect(unsubscribe()).toBeUndefined();
+  });
+
   it('includes iOS setup instructions in the linking error', () => {
     jest
       .spyOn(Platform, 'select')

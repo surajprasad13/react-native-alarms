@@ -8,6 +8,8 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.RingtoneManager
@@ -22,6 +24,9 @@ import android.os.Vibrator
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import java.io.InputStream
+import java.net.URL
+import java.util.concurrent.Executors
 
 /**
  * Foreground service that actually rings: looping sound, vibration, a partial wake
@@ -39,6 +44,7 @@ class AlarmService : Service() {
   private var player: MediaPlayer? = null
   private var vibrator: Vibrator? = null
   private var wakeLock: PowerManager.WakeLock? = null
+  private val imageExecutor = Executors.newSingleThreadExecutor()
 
   override fun onBind(intent: Intent?): IBinder? = null
 
@@ -70,6 +76,7 @@ class AlarmService : Service() {
     Log.i(TAG, "Ringing alarm ${alarm.id}")
 
     startInForeground(buildNotification(alarm))
+    loadNotificationImage(alarm)
     acquireWakeLock()
     startSound(alarm)
     if (alarm.vibrate) startVibration()
@@ -139,6 +146,7 @@ class AlarmService : Service() {
 
   override fun onDestroy() {
     stopRinging()
+    imageExecutor.shutdownNow()
     super.onDestroy()
   }
 
@@ -217,7 +225,7 @@ class AlarmService : Service() {
       .build()
   }
 
-  private fun buildNotification(alarm: AlarmData): Notification {
+  private fun buildNotification(alarm: AlarmData, image: Bitmap? = null): Notification {
     ensureChannel()
     val ringIntent = Intent(this, AlarmRingActivity::class.java)
       .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -235,10 +243,56 @@ class AlarmService : Service() {
       .setFullScreenIntent(fullScreen, true)
       .setContentIntent(fullScreen)
       .addAction(0, "Stop", commandPI(ACTION_DISMISS, 2))
+    if (image != null) {
+      b.setStyle(
+        NotificationCompat.BigPictureStyle()
+          .bigPicture(image)
+          .setBigContentTitle(alarm.title.ifBlank { "Alarm" })
+          .setSummaryText(alarm.body.ifBlank { "Alarm is ringing" })
+      )
+    }
     if (alarm.snoozeEnabled) {
       b.addAction(0, "Snooze", commandPI(ACTION_SNOOZE, 3))
     }
     return b.build()
+  }
+
+  private fun loadNotificationImage(alarm: AlarmData) {
+    if (alarm.image.isBlank()) return
+    imageExecutor.execute {
+      try {
+        val bitmap = decodeImage(Uri.parse(alarm.image)) ?: return@execute
+        handler.post {
+          if (current?.id == alarm.id) {
+            ensureChannel().notify(NOTIFICATION_ID, buildNotification(alarm, bitmap))
+          }
+        }
+      } catch (e: Exception) {
+        Log.w(TAG, "Could not load notification image for alarm ${alarm.id}", e)
+      }
+    }
+  }
+
+  private fun decodeImage(uri: Uri): Bitmap? {
+    fun openStream(): InputStream? = when (uri.scheme?.lowercase()) {
+      "https" -> URL(uri.toString()).openConnection().apply {
+        connectTimeout = 5_000
+        readTimeout = 5_000
+      }.getInputStream()
+      "file", "content", "android.resource" -> contentResolver.openInputStream(uri)
+      else -> throw IllegalArgumentException("Unsupported alarm image URI: $uri")
+    }
+
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    openStream()?.use { BitmapFactory.decodeStream(it, null, bounds) }
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+    var sampleSize = 1
+    while (bounds.outWidth / sampleSize > 1024 || bounds.outHeight / sampleSize > 1024) {
+      sampleSize *= 2
+    }
+    val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+    return openStream()?.use { BitmapFactory.decodeStream(it, null, options) }
   }
 
   private fun commandPI(action: String, code: Int): PendingIntent =
