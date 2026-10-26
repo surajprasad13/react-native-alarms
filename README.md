@@ -1,5 +1,7 @@
 # React Native Alarms 🔔
 
+![](/src/assets/promotion.png)
+
 A cross-platform native scheduling, reminder, and wake-up system for React Native. Schedule time-sensitive events on Android and iOS, deliver reminders, and present a registered custom React Native screen when a scheduled event fires—using one unified API.
 
 Although it can power a traditional alarm clock, react-native-alarms is also useful for exact-time reminders, scheduled check-ins, custom lock-screen experiences, and time-based app workflows. Build the experience around your own UI and event data instead of being limited to a standard alarm screen.
