@@ -1,5 +1,6 @@
 import Foundation
 import UserNotifications
+import UniformTypeIdentifiers
 
 /// Fallback backend for devices without AlarmKit (iOS < 26, or AlarmKit denied):
 /// local notifications with Stop / Snooze actions.
@@ -78,12 +79,13 @@ final class NotificationBackend: NSObject, UNUserNotificationCenterDelegate {
     + (0..<Self.intervalOccurrences).map { base + ":i\($0)" }
   }
   
-  private func content(for a: AlarmData) -> UNMutableNotificationContent {
+  private func content(for a: AlarmData, attachment: UNNotificationAttachment? = nil) -> UNMutableNotificationContent {
     let c = UNMutableNotificationContent()
     c.title = a.title.isEmpty ? "Alarm" : a.title
     c.body = a.body.isEmpty ? "Alarm is ringing" : a.body
     c.categoryIdentifier = Self.category
-    c.userInfo = ["alarmId": a.id]
+    c.userInfo = ["alarmId": a.id, "image": a.image ?? ""]
+    if let attachment { c.attachments = [attachment] }
     c.sound = (a.sound.isEmpty || a.sound == "default")
     ? .default
     : UNNotificationSound(named: UNNotificationSoundName(rawValue: a.sound))
@@ -93,51 +95,96 @@ final class NotificationBackend: NSObject, UNUserNotificationCenterDelegate {
     return c
   }
   
-  private func request(_ id: String, _ a: AlarmData, _ trigger: UNNotificationTrigger) -> UNNotificationRequest {
-    UNNotificationRequest(identifier: id, content: content(for: a), trigger: trigger)
+  private func request(_ id: String, _ a: AlarmData, _ trigger: UNNotificationTrigger,
+                       _ attachment: UNNotificationAttachment? = nil) -> UNNotificationRequest {
+    UNNotificationRequest(identifier: id, content: content(for: a, attachment: attachment), trigger: trigger)
   }
   
   func schedule(_ a: AlarmData, completion: @escaping (Error?) -> Void) {
     cancel(a.id)
-    let cal = Calendar.current
-    let base = Self.prefix + a.id
-    let hm = cal.dateComponents([.hour, .minute], from: a.date)
-    var requests: [UNNotificationRequest] = []
-    
-    switch a.repeatType {
-    case "daily":
-      var dc = DateComponents()
-      dc.hour = hm.hour
-      dc.minute = hm.minute
-      requests.append(request(base, a, UNCalendarNotificationTrigger(dateMatching: dc, repeats: true)))
-      
-    case "weekly":
-      let days = a.weekdays.isEmpty ? Array(1...7) : a.weekdays.filter { (1...7).contains($0) }
-      for d in days {
+    prepareAttachment(for: a.image) { attachment in
+      let cal = Calendar.current
+      let base = Self.prefix + a.id
+      let hm = cal.dateComponents([.hour, .minute], from: a.date)
+      var requests: [UNNotificationRequest] = []
+
+      switch a.repeatType {
+      case "daily":
         var dc = DateComponents()
-        dc.weekday = d
         dc.hour = hm.hour
         dc.minute = hm.minute
-        requests.append(request(base + ":wd\(d)", a, UNCalendarNotificationTrigger(dateMatching: dc, repeats: true)))
+        requests.append(self.request(base, a, UNCalendarNotificationTrigger(dateMatching: dc, repeats: true), attachment))
+
+      case "weekly":
+        let days = a.weekdays.isEmpty ? Array(1...7) : a.weekdays.filter { (1...7).contains($0) }
+        for d in days {
+          var dc = DateComponents()
+          dc.weekday = d
+          dc.hour = hm.hour
+          dc.minute = hm.minute
+          requests.append(self.request(base + ":wd\(d)", a, UNCalendarNotificationTrigger(dateMatching: dc, repeats: true), attachment))
+        }
+
+      case "interval":
+        // iOS repeating interval triggers count from "now", not from `timestamp`, so
+        // pre-schedule the next N exact occurrences instead.
+        var t = a.nextTrigger()
+        guard t > 0 else { return completion(nil) }
+        for k in 0..<Self.intervalOccurrences {
+          requests.append(self.request(base + ":i\(k)", a, self.exactTrigger(ms: t), attachment))
+          t += a.intervalMs
+        }
+
+      default:
+        let next = a.nextTrigger()
+        guard next > 0 else { return completion(nil) } // nothing in the future, same as Android
+        requests.append(self.request(base, a, self.exactTrigger(ms: next), attachment))
       }
-      
-    case "interval":
-      // iOS repeating interval triggers count from "now", not from `timestamp`, so
-      // pre-schedule the next N exact occurrences instead.
-      var t = a.nextTrigger()
-      guard t > 0 else { return completion(nil) }
-      for k in 0..<Self.intervalOccurrences {
-        requests.append(request(base + ":i\(k)", a, exactTrigger(ms: t)))
-        t += a.intervalMs
-      }
-      
-    default:
-      let next = a.nextTrigger()
-      guard next > 0 else { return completion(nil) } // nothing in the future, same as Android
-      requests.append(request(base, a, exactTrigger(ms: next)))
+
+      self.add(requests, completion: completion)
     }
-    
-    add(requests, completion: completion)
+  }
+
+  private func prepareAttachment(for image: String?, completion: @escaping (UNNotificationAttachment?) -> Void) {
+    guard let image, !image.isEmpty else { return completion(nil) }
+    guard let url = URL(string: image) else {
+      NSLog("[react-native-alarms] Invalid image URI: %@", image)
+      return completion(nil)
+    }
+    if url.isFileURL {
+      do {
+        completion(try UNNotificationAttachment(identifier: "alarm-image", url: url, options: nil))
+      } catch {
+        NSLog("[react-native-alarms] Could not attach alarm image: %@", error.localizedDescription)
+        completion(nil)
+      }
+      return
+    }
+    guard url.scheme?.lowercased() == "https" else {
+      NSLog("[react-native-alarms] Alarm image URI must use file:// or https://: %@", image)
+      return completion(nil)
+    }
+
+    URLSession.shared.downloadTask(with: url) { temporaryURL, response, error in
+      guard let temporaryURL, error == nil else {
+        NSLog("[react-native-alarms] Could not download alarm image: %@", error?.localizedDescription ?? "empty response")
+        return completion(nil)
+      }
+      let mimeType = response?.mimeType
+      let ext = url.pathExtension.isEmpty
+        ? (mimeType.flatMap { UTType(mimeType: $0)?.preferredFilenameExtension } ?? "jpg")
+        : url.pathExtension
+      let destination = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+        .appendingPathExtension(ext)
+      do {
+        try FileManager.default.moveItem(at: temporaryURL, to: destination)
+        completion(try UNNotificationAttachment(identifier: "alarm-image", url: destination, options: nil))
+      } catch {
+        NSLog("[react-native-alarms] Could not attach downloaded alarm image: %@", error.localizedDescription)
+        completion(nil)
+      }
+    }.resume()
   }
   
   private func exactTrigger(ms: Double) -> UNCalendarNotificationTrigger {
@@ -165,8 +212,10 @@ final class NotificationBackend: NSObject, UNUserNotificationCenterDelegate {
   func snooze(_ a: AlarmData, minutes: Int) {
     center.removeDeliveredNotifications(withIdentifiers: ids(for: a.id))
     let trigger = UNTimeIntervalNotificationTrigger(timeInterval: Double(max(1, minutes)) * 60, repeats: false)
-    center.add(request(Self.prefix + a.id + ":snooze", a, trigger))
-    if ringing?.id == a.id { ringing = nil }
+    prepareAttachment(for: a.image) { attachment in
+      self.center.add(self.request(Self.prefix + a.id + ":snooze", a, trigger, attachment))
+      if self.ringing?.id == a.id { self.ringing = nil }
+    }
   }
   
   /// Stops the notification's sound (by clearing the delivered notification) while the

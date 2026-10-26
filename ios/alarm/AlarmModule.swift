@@ -81,6 +81,7 @@ final class AlarmModule: RCTEventEmitter {
       "timestamp": AlarmData.now(),
       "title": a.title,
       "body": a.body,
+      "image": a.image ?? "",
       "data": a.data,
     ])
   }

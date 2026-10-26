@@ -1,6 +1,6 @@
 import type { TurboModule } from 'react-native';
 import { NativeModules, Platform, TurboModuleRegistry } from 'react-native';
-import { AlarmPermission, AlarmConfig, AlarmProp } from '../src/types';
+import type { AlarmPermission, AlarmConfig, AlarmProp } from '../src/types';
 
 /**
  * Native Alarm module interface.
@@ -129,8 +129,13 @@ const LINKING_ERROR =
   "react-native-alarms: the native 'Alarm' module is not linked. " +
   Platform.select({
     ios: "Run 'pod install' in the ios folder, then rebuild the app.",
-    default: 'Rebuild the app after installing the package.',
+    default:
+      'Rebuild the app after installing the package. Expo Go is unsupported; use a development build.',
   });
+
+export function getNativeAlarmModule(): Spec | null {
+  return TurboModuleRegistry.get<Spec>('Alarm') ?? NativeModules.Alarm ?? null;
+}
 
 /**
  * Cross-platform native Alarm module.
@@ -151,8 +156,7 @@ const LINKING_ERROR =
  * ```
  */
 const Alarm: Spec =
-  TurboModuleRegistry.get<Spec>('Alarm') ??
-  NativeModules.Alarm ??
+  getNativeAlarmModule() ??
   new Proxy({} as Spec, {
     get() {
       throw new Error(LINKING_ERROR);

@@ -1,17 +1,17 @@
 {
   "name": "react-native-alarms",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "A powerful, cross-platform alarm management library for React Native",
   "private": false,
   "main": "index.ts",
-  "types": "index.d.ts",
+  "types": "index.ts",
   "exports": {
     ".": {
-      "types": "./index.d.ts",
+      "types": "./index.ts",
       "default": "./index.ts"
     },
     "./service": {
-      "types": "./AlarmService.d.ts",
+      "types": "./AlarmService.ts",
       "default": "./AlarmService.ts"
     },
     "./package.json": "./package.json"

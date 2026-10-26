@@ -11,6 +11,8 @@ export type {
   AlarmProp,
   AlarmPermission,
   AlarmEvent,
+  AlarmEventMap,
+  AlarmEventName,
 } from './src/types';
 
 export { AlarmService } from './AlarmService';

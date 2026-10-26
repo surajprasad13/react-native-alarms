@@ -241,6 +241,7 @@ class AlarmModule(private val ctx: ReactApplicationContext) : ReactContextBaseJa
       putDouble("timestamp", System.currentTimeMillis().toDouble())
       putString("title", a.title)
       putString("body", a.body)
+      putString("image", a.image)
       putString("data", a.data)
     }
     ctx.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java).emit(eventName, map)

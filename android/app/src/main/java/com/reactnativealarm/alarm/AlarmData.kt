@@ -14,6 +14,7 @@ data class AlarmData(
   val timestamp: Long,
   val title: String,
   val body: String,
+  val image: String,
   val sound: String,
   val vibrate: Boolean,
   val snoozeEnabled: Boolean,
@@ -77,6 +78,7 @@ data class AlarmData(
 
   fun toJson(): String = JSONObject().apply {
     put("id", id); put("timestamp", timestamp); put("title", title); put("body", body)
+    put("image", image)
     put("sound", sound); put("vibrate", vibrate); put("snoozeEnabled", snoozeEnabled)
     put("snoozeMinutes", snoozeMinutes); put("repeatType", repeatType)
     put("weekdays", JSONArray(weekdays)); put("intervalMs", intervalMs)
@@ -90,6 +92,7 @@ data class AlarmData(
     putDouble("timestamp", timestamp.toDouble())
     putString("title", title)
     putString("body", body)
+    putString("image", image)
     putString("sound", sound)
     putBoolean("vibrate", vibrate)
     putBoolean("snoozeEnabled", snoozeEnabled)
@@ -117,6 +120,7 @@ data class AlarmData(
     putDouble("timestamp", timestamp.toDouble())
     putString("title", title)
     putString("body", body)
+    putString("image", image)
     putBoolean("snoozeEnabled", snoozeEnabled)
     putInt("snoozeMinutes", snoozeMinutes)
     putString("data", data)
@@ -173,6 +177,7 @@ data class AlarmData(
         timestamp = o.getLong("timestamp"),
         title = o.optString("title"),
         body = o.optString("body"),
+        image = o.optString("image"),
         sound = o.optString("sound", "default"),
         vibrate = o.optBoolean("vibrate", true),
         snoozeEnabled = o.optBoolean("snoozeEnabled", true),
@@ -214,6 +219,7 @@ data class AlarmData(
         timestamp = m.getDouble("timestamp").toLong(),
         title = m.str("title"),
         body = m.str("body"),
+        image = m.str("image"),
         sound = m.str("sound", "default"),
         vibrate = m.bool("vibrate", true),
         snoozeEnabled = m.bool("snoozeEnabled", true),

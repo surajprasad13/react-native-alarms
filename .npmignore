@@ -1,5 +1,4 @@
-# Source files (TypeScript source is not needed, lib/ has compiled JS)
-# src/
+# Keep TypeScript sources published: package entry points use them for runtime and types.
 
 # Development files
 .git
