@@ -93,3 +93,4 @@ android-lib/build
 .bundle
 .husky
 commitlint.config.mjs
+src/assets/
