@@ -17,6 +17,11 @@ final class AlarmModule: RCTEventEmitter {
   
   private var hasListeners = false
   private var activeObserver: NSObjectProtocol?
+  private struct ScheduleTransaction {
+    let token: UUID
+    let original: AlarmData?
+  }
+  private var scheduleTransactions: [String: ScheduleTransaction] = [:]
   
   override init() {
     super.init()
@@ -95,7 +100,10 @@ final class AlarmModule: RCTEventEmitter {
     return false
   }
   
-  private func cancelNative(_ id: String) {
+  private func cancelNative(_ id: String, preserveScheduleTransaction: Bool = false) {
+    if !preserveScheduleTransaction {
+      scheduleTransactions.removeValue(forKey: id)
+    }
     AlarmRingPresenter.dismiss(id)
     NotificationBackend.shared.cancel(id)
 #if canImport(AlarmKit)
@@ -203,19 +211,51 @@ final class AlarmModule: RCTEventEmitter {
     arm(AlarmData.from(config: dict, id: alarmId), code: "E_UPDATE", reject: reject) { resolve(true) }
   }
   
-  /// Cancel → persist → schedule, the same sequence as Android.
+  /// Replaces the persisted alarm only after the platform scheduler accepts it.
   private func arm(_ alarm: AlarmData, code: String, reject: @escaping RCTPromiseRejectBlock, done: @escaping () -> Void) {
-    cancelNative(alarm.id)
+    let original = scheduleTransactions[alarm.id].map { $0.original } ?? AlarmStore.get(alarm.id)
+    let token = UUID()
+    cancelNative(alarm.id, preserveScheduleTransaction: true)
+    scheduleTransactions[alarm.id] = ScheduleTransaction(token: token, original: original)
     AlarmStore.save(alarm)
-    
+
+    scheduleNative(alarm) { error in
+      guard self.scheduleTransactions[alarm.id]?.token == token else {
+        reject("E_CANCELLED", "Alarm scheduling was superseded or cancelled", nil)
+        return
+      }
+      guard let error else {
+        self.scheduleTransactions.removeValue(forKey: alarm.id)
+        done()
+        return
+      }
+
+      self.cancelNative(alarm.id, preserveScheduleTransaction: true)
+      if let original {
+        AlarmStore.save(original)
+        self.scheduleNative(original) { restoreError in
+          if let restoreError {
+            NSLog("[react-native-alarms] Could not restore alarm %@ after scheduling failed: %@",
+                  alarm.id, restoreError.localizedDescription)
+          }
+        }
+      } else {
+        AlarmStore.remove(alarm.id)
+      }
+      self.scheduleTransactions.removeValue(forKey: alarm.id)
+      reject(code, error.localizedDescription, error)
+    }
+  }
+
+  private func scheduleNative(_ alarm: AlarmData, completion: @escaping (Error?) -> Void) {
 #if canImport(AlarmKit)
     if #available(iOS 26.0, *), useAlarmKit {
       Task {
         do {
           try await AlarmKitBackend.shared.schedule(alarm)
-          done()
+          completion(nil)
         } catch {
-          reject(code, error.localizedDescription, error)
+          completion(error)
         }
       }
       return
@@ -224,11 +264,15 @@ final class AlarmModule: RCTEventEmitter {
     
     NotificationBackend.shared.status { status in
       guard status == "granted" else {
-        // Mirrors Android's SecurityException when the exact-alarm permission is missing.
-        return reject(code, "Alarm permission not granted; call requestPermission() first", nil)
+        let error = NSError(
+          domain: "ReactNativeAlarms",
+          code: 1,
+          userInfo: [NSLocalizedDescriptionKey: "Alarm permission not granted; call requestPermission() first"]
+        )
+        return completion(error)
       }
       NotificationBackend.shared.schedule(alarm) { error in
-        if let error { reject(code, error.localizedDescription, error) } else { done() }
+        completion(error)
       }
     }
   }

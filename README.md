@@ -193,6 +193,20 @@ unsubscribeDismissed();
 unsubscribeSnoozed();
 ```
 
+Alarm events are delivered to JavaScript only while the native module and JS
+runtime are active; they are not a durable event queue. On app startup, query
+`getRingingAlarm()` to recover an alarm that started while the app was closed:
+
+```typescript
+const ringingAlarm = await AlarmService.getRingingAlarm();
+if (ringingAlarm) {
+  // Restore any app-level state needed for the currently ringing alarm.
+}
+```
+
+Register event listeners as part of app initialization to receive subsequent
+transitions. Native ring-screen presentation is independent of JS event delivery.
+
 ### Managing Alarms
 
 ```typescript
@@ -240,7 +254,7 @@ type AlarmConfig = {
   title: string;              // Alarm title/label
   body?: string;              // Alarm description
   image?: string;             // file:// or https:// image URI for ring screen/notifications
-  sound?: string;             // 'default' or custom sound file name
+  sound?: string;             // 'default' or a bundled sound filename, e.g. 'bell.wav'
   vibrate?: boolean;          // Enable vibration (Android only)
   snoozeEnabled?: boolean;    // Allow snoozing
   snoozeMinutes?: number;     // Snooze duration in minutes
@@ -277,6 +291,28 @@ iOS notification attachments accept `https://` and `file://` URIs; the iOS 26+
 AlarmKit system alert itself does not display custom images, but the image URI is
 available to the React Native ring screen when it opens. Render it in that screen
 with React Native's `Image` component and `source={{ uri: image }}`.
+
+#### Custom alarm sound
+
+Set `sound` to the same bundled filename on both platforms. For example, with
+`sound: 'bell.wav'`, include `bell.wav` in the iOS app target's Copy Bundle
+Resources and add it to Android at
+`android/app/src/main/res/raw/bell.wav` (create the `raw` directory if needed).
+Android raw resource filenames must be lowercase and use only letters, numbers,
+and underscores. iOS notification sounds must use a supported audio format and
+meet Apple's notification sound duration and size limits.
+
+```ts
+await AlarmService.scheduleAlarm({
+  timestamp: Date.now() + 60_000,
+  title: 'Wake up',
+  sound: 'bell.wav',
+});
+```
+
+The alarm uses the custom sound when the file is bundled for that platform.
+Otherwise, including when `sound` is omitted or set to `'default'`, it uses the
+platform's default alarm sound.
 
 > **How the native layer stores these:** `AlarmConfig.presentation` is resolved by `AlarmService` before being handed off to the native module. The resulting fields stored in the native `AlarmData` model are:
 >

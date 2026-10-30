@@ -35,6 +35,23 @@ struct AlarmData: Codable {
 
         return props
     }
+
+  var bundledSoundName: String? {
+    guard !sound.isEmpty, sound != "default",
+          URL(fileURLWithPath: sound).lastPathComponent == sound else {
+      return nil
+    }
+
+    let filename = URL(fileURLWithPath: sound)
+    let name = filename.deletingPathExtension().lastPathComponent
+    let fileExtension = filename.pathExtension
+    guard !name.isEmpty, !fileExtension.isEmpty,
+          Bundle.main.url(forResource: name, withExtension: fileExtension) != nil else {
+      return nil
+    }
+
+    return sound
+  }
   
   /// Next time this alarm should ring, in ms since epoch, or 0 if never.
   func nextTrigger(from: Double = AlarmData.now()) -> Double {

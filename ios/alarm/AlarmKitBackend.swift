@@ -138,8 +138,12 @@ final class AlarmKitBackend {
       metadata: RNAlarmMetadata(),
       tintColor: .blue
     )
-    let sound: AlertConfiguration.AlertSound =
-    (a.sound.isEmpty || a.sound == "default") ? .default : .named(a.sound)
+    let sound: AlertConfiguration.AlertSound
+    if let soundName = a.bundledSoundName {
+      sound = .named(soundName)
+    } else {
+      sound = .default
+    }
     
     return AlarmManager.AlarmConfiguration(
       schedule: schedule,
