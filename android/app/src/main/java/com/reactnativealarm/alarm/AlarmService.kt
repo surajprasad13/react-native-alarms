@@ -153,13 +153,55 @@ class AlarmService : Service() {
   // ---- Sound ----
 
   private fun startSound(alarm: AlarmData) {
-    val uri = alarm.sound.takeIf { it.isNotBlank() && it != "default" }?.let { Uri.parse(it) }
-      ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-      ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+    val customUri = customSoundUri(alarm.sound)
+    if (customUri != null) {
+      try {
+        playSound(customUri)
+        return
+      } catch (e: Exception) {
+        Log.w(TAG, "Could not play custom alarm sound $customUri; using the default sound", e)
+      }
+    }
 
+    val defaultUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+      ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+    if (defaultUri == null) {
+      Log.e(TAG, "No default alarm or ringtone sound is available")
+      startVibration()
+      return
+    }
     try {
-      val mp = MediaPlayer()
-      player = mp
+      playSound(defaultUri)
+    } catch (e: Exception) {
+      Log.e(TAG, "Could not play default alarm sound $defaultUri", e)
+      startVibration() // last resort: at least wake the user somehow
+    }
+  }
+
+  private fun customSoundUri(sound: String): Uri? {
+    if (sound.isBlank() || sound == "default") return null
+
+    val parsed = Uri.parse(sound)
+    if (parsed.scheme != null) return parsed
+
+    val filename = sound.substringAfterLast('/')
+    val resourceName = filename.substringBeforeLast('.', filename)
+    if (filename != sound || !resourceName.matches(Regex("[a-z][a-z0-9_]*"))) {
+      Log.w(TAG, "Invalid custom alarm sound name '$sound'; using the default sound")
+      return null
+    }
+
+    val resourceId = resources.getIdentifier(resourceName, "raw", packageName)
+    if (resourceId == 0) {
+      Log.w(TAG, "Custom alarm sound '$sound' was not found; using the default sound")
+      return null
+    }
+    return Uri.parse("android.resource://$packageName/$resourceId")
+  }
+
+  private fun playSound(uri: Uri) {
+    val mp = MediaPlayer()
+    try {
       mp.apply {
         setAudioAttributes(
           AudioAttributes.Builder()
@@ -172,11 +214,10 @@ class AlarmService : Service() {
         prepare()
         start()
       }
-    } catch (e: Exception) {
-      Log.e(TAG, "Could not play $uri, vibrating only", e)
-      runCatching { player?.release() }
-      player = null
-      startVibration() // last resort: at least wake the user somehow
+      player = mp
+    } catch (error: Exception) {
+      mp.release()
+      throw error
     }
   }
 

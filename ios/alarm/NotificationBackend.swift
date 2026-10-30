@@ -88,9 +88,9 @@ final class NotificationBackend: NSObject, UNUserNotificationCenterDelegate {
     c.categoryIdentifier = Self.category
     c.userInfo = ["alarmId": a.id, "image": a.image ?? ""]
     if let attachment { c.attachments = [attachment] }
-    c.sound = (a.sound.isEmpty || a.sound == "default")
-    ? .default
-    : UNNotificationSound(named: UNNotificationSoundName(rawValue: a.sound))
+    c.sound = a.bundledSoundName.map {
+      UNNotificationSound(named: UNNotificationSoundName(rawValue: $0))
+    } ?? .default
     // Breaks through Focus when the Time Sensitive Notifications capability is enabled;
     // silently downgraded to a normal notification otherwise.
     c.interruptionLevel = .timeSensitive

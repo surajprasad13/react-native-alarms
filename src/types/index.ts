@@ -98,9 +98,11 @@ export type AlarmConfig = {
   image?: string;
 
   /**
-   * Alarm sound.
+   * Alarm sound file name, such as `"bell.wav"`.
    *
-   * Use `"default"` or a bundled sound file name.
+   * Bundle the same filename with the iOS app and place it in Android's
+   * `android/app/src/main/res/raw` directory. Uses the system default if
+   * omitted, set to `"default"`, or the file is unavailable.
    */
   sound?: string;
 
