@@ -193,6 +193,20 @@ unsubscribeDismissed();
 unsubscribeSnoozed();
 ```
 
+Alarm events are delivered to JavaScript only while the native module and JS
+runtime are active; they are not a durable event queue. On app startup, query
+`getRingingAlarm()` to recover an alarm that started while the app was closed:
+
+```typescript
+const ringingAlarm = await AlarmService.getRingingAlarm();
+if (ringingAlarm) {
+  // Restore any app-level state needed for the currently ringing alarm.
+}
+```
+
+Register event listeners as part of app initialization to receive subsequent
+transitions. Native ring-screen presentation is independent of JS event delivery.
+
 ### Managing Alarms
 
 ```typescript

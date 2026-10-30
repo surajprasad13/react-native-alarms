@@ -138,9 +138,7 @@ class AlarmModule(private val ctx: ReactApplicationContext) : ReactContextBaseJa
       val id = if (config.hasKey("alarmId") && !config.isNull("alarmId"))
         config.getString("alarmId")!! else UUID.randomUUID().toString()
       val alarm = AlarmData.fromMap(config, id)
-      AlarmScheduler.cancel(ctx, id)
-      AlarmStore.save(ctx, alarm)
-      AlarmScheduler.schedule(ctx, alarm)
+      scheduleReplacing(alarm)
       promise.resolve(id)
     } catch (e: Exception) {
       promise.reject("E_SCHEDULE", e.message, e)
@@ -152,12 +150,36 @@ class AlarmModule(private val ctx: ReactApplicationContext) : ReactContextBaseJa
     try {
       if (AlarmStore.get(ctx, alarmId) == null) return promise.resolve(false)
       val alarm = AlarmData.fromMap(config, alarmId)
-      AlarmScheduler.cancel(ctx, alarmId)
-      AlarmStore.save(ctx, alarm)
-      AlarmScheduler.schedule(ctx, alarm)
+      scheduleReplacing(alarm)
       promise.resolve(true)
     } catch (e: Exception) {
       promise.reject("E_UPDATE", e.message, e)
+    }
+  }
+
+  private fun scheduleReplacing(alarm: AlarmData) {
+    val previous = AlarmStore.get(ctx, alarm.id)
+    AlarmScheduler.cancel(ctx, alarm.id)
+    try {
+      AlarmStore.save(ctx, alarm)
+      AlarmScheduler.schedule(ctx, alarm)
+    } catch (error: Exception) {
+      AlarmScheduler.cancel(ctx, alarm.id)
+      if (previous == null) {
+        AlarmStore.remove(ctx, alarm.id)
+      } else {
+        AlarmStore.save(ctx, previous)
+        try {
+          AlarmScheduler.schedule(ctx, previous)
+        } catch (restoreError: Exception) {
+          android.util.Log.e(
+            "AlarmModule",
+            "Could not restore alarm ${alarm.id} after scheduling failed",
+            restoreError
+          )
+        }
+      }
+      throw error
     }
   }
 
@@ -182,14 +204,14 @@ class AlarmModule(private val ctx: ReactApplicationContext) : ReactContextBaseJa
 
   @ReactMethod
   fun stopAlarm(alarmId: String, promise: Promise) {
-    AlarmService.dismiss(ctx)
+    if (AlarmService.current?.id == alarmId) AlarmService.dismiss(ctx)
     promise.resolve(null)
   }
 
   @ReactMethod
   fun snoozeAlarm(alarmId: String, minutes: Double, promise: Promise) {
     val ringing = AlarmService.current
-    if (ringing != null) {
+    if (ringing?.id == alarmId) {
       AlarmService.snooze(ctx, minutes.toInt())
       return promise.resolve(null)
     }

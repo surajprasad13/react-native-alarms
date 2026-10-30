@@ -23,6 +23,8 @@ final class NotificationBackend: NSObject, UNUserNotificationCenterDelegate {
   
   /// The alarm whose notification is currently being shown (foreground) or was tapped.
   private(set) var ringing: AlarmData?
+  private var imageScheduleTokens: [String: UUID] = [:]
+  private let imageScheduleTokensLock = NSLock()
   /// Wired by `AlarmModule` so native events reach JS.
   var onEvent: ((String, AlarmData) -> Void)?
   
@@ -102,7 +104,12 @@ final class NotificationBackend: NSObject, UNUserNotificationCenterDelegate {
   
   func schedule(_ a: AlarmData, completion: @escaping (Error?) -> Void) {
     cancel(a.id)
+    let token = UUID()
+    setImageScheduleToken(token, for: a.id)
     prepareAttachment(for: a.image) { attachment in
+      guard self.hasImageScheduleToken(token, for: a.id) else {
+        return completion(CancellationError())
+      }
       let cal = Calendar.current
       let base = Self.prefix + a.id
       let hm = cal.dateComponents([.hour, .minute], from: a.date)
@@ -141,7 +148,7 @@ final class NotificationBackend: NSObject, UNUserNotificationCenterDelegate {
         requests.append(self.request(base, a, self.exactTrigger(ms: next), attachment))
       }
 
-      self.add(requests, completion: completion)
+      self.add(requests, alarmId: a.id, token: token, completion: completion)
     }
   }
 
@@ -165,7 +172,9 @@ final class NotificationBackend: NSObject, UNUserNotificationCenterDelegate {
       return completion(nil)
     }
 
-    URLSession.shared.downloadTask(with: url) { temporaryURL, response, error in
+    var request = URLRequest(url: url)
+    request.timeoutInterval = 15
+    URLSession.shared.downloadTask(with: request) { temporaryURL, response, error in
       guard let temporaryURL, error == nil else {
         NSLog("[react-native-alarms] Could not download alarm image: %@", error?.localizedDescription ?? "empty response")
         return completion(nil)
@@ -195,26 +204,69 @@ final class NotificationBackend: NSObject, UNUserNotificationCenterDelegate {
     return UNCalendarNotificationTrigger(dateMatching: dc, repeats: false)
   }
   
-  private func add(_ requests: [UNNotificationRequest], completion: @escaping (Error?) -> Void) {
+  private func add(
+    _ requests: [UNNotificationRequest],
+    alarmId: String,
+    token: UUID,
+    completion: @escaping (Error?) -> Void
+  ) {
     let group = DispatchGroup()
+    let errorLock = NSLock()
     var firstError: Error?
     for r in requests {
       group.enter()
       center.add(r) { error in
+        errorLock.lock()
         if firstError == nil { firstError = error }
+        errorLock.unlock()
         group.leave()
       }
     }
-    group.notify(queue: .main) { completion(firstError) }
+    group.notify(queue: .main) {
+      guard self.hasImageScheduleToken(token, for: alarmId) else {
+        self.center.removePendingNotificationRequests(withIdentifiers: requests.map(\.identifier))
+        return completion(CancellationError())
+      }
+      errorLock.lock()
+      let error = firstError
+      errorLock.unlock()
+      completion(error)
+    }
+  }
+
+  private func setImageScheduleToken(_ token: UUID, for alarmId: String) {
+    imageScheduleTokensLock.lock()
+    imageScheduleTokens[alarmId] = token
+    imageScheduleTokensLock.unlock()
+  }
+
+  private func hasImageScheduleToken(_ token: UUID, for alarmId: String) -> Bool {
+    imageScheduleTokensLock.lock()
+    defer { imageScheduleTokensLock.unlock() }
+    return imageScheduleTokens[alarmId] == token
   }
   
   /// One-off re-ring in `minutes`, equivalent to Android's `AlarmScheduler.scheduleSnooze`.
   func snooze(_ a: AlarmData, minutes: Int) {
     center.removeDeliveredNotifications(withIdentifiers: ids(for: a.id))
     let trigger = UNTimeIntervalNotificationTrigger(timeInterval: Double(max(1, minutes)) * 60, repeats: false)
+    let token = UUID()
+    setImageScheduleToken(token, for: a.id)
     prepareAttachment(for: a.image) { attachment in
-      self.center.add(self.request(Self.prefix + a.id + ":snooze", a, trigger, attachment))
-      if self.ringing?.id == a.id { self.ringing = nil }
+      guard self.hasImageScheduleToken(token, for: a.id) else { return }
+      let request = self.request(Self.prefix + a.id + ":snooze", a, trigger, attachment)
+      self.center.add(request) { error in
+        guard self.hasImageScheduleToken(token, for: a.id) else {
+          self.center.removePendingNotificationRequests(withIdentifiers: [request.identifier])
+          return
+        }
+        if let error {
+          NSLog("[react-native-alarms] Could not schedule snooze for %@: %@",
+                a.id, error.localizedDescription)
+        } else if self.ringing?.id == a.id {
+          self.ringing = nil
+        }
+      }
     }
   }
   
@@ -225,12 +277,16 @@ final class NotificationBackend: NSObject, UNUserNotificationCenterDelegate {
   }
   
   func cancel(_ id: String) {
+    setImageScheduleToken(UUID(), for: id)
     center.removePendingNotificationRequests(withIdentifiers: ids(for: id))
     center.removeDeliveredNotifications(withIdentifiers: ids(for: id))
     if ringing?.id == id { ringing = nil }
   }
   
   func cancelAll() {
+    imageScheduleTokensLock.lock()
+    imageScheduleTokens.removeAll()
+    imageScheduleTokensLock.unlock()
     center.getPendingNotificationRequests { (requests: [UNNotificationRequest]) in
       let ours = requests.map { $0.identifier }.filter { $0.hasPrefix(Self.prefix) }
       self.center.removePendingNotificationRequests(withIdentifiers: ours)
